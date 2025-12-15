@@ -1,94 +1,92 @@
-import * as ort from 'onnxruntime-web';
 import type { HealthDataPacket } from '../simulation/DataGenerator';
 
 export class InferenceEngine {
-    private session: ort.InferenceSession | null = null;
-    public isLoaded = false;
+    private isCalibrating = true;
+    private calibrationBuffer: HealthDataPacket[] = [];
+    private readonly CALIBRATION_SIZE = 30; // 30 samples (~30 seconds)
 
-    private dataBuffer: number[][] = [];
-    private readonly SEQUENCE_LENGTH = 60;
+    // Baseline statistics
+    private stats = {
+        hrMean: 0,
+        hrStdDev: 0,
+        hrvMean: 0,
+        hrvStdDev: 0
+    };
 
-    async init() {
-        try {
-            // Try to load model, if fail, we use fallback
-            this.session = await ort.InferenceSession.create('/model.onnx', {
-                executionProviders: ['wasm'],
-            });
-            this.isLoaded = true;
-            console.log("ONNX Model (Hybrid LSTM-GRU) Loaded Successfully");
-        } catch (e) {
-            console.warn("ONNX Model failed to load (using Rule-Based Fallback)", e);
-            this.isLoaded = false;
-        }
+    public getStatus() {
+        return {
+            isCalibrating: this.isCalibrating,
+            samplesCollected: this.calibrationBuffer.length,
+            samplesNeeded: this.CALIBRATION_SIZE
+        };
     }
 
-    async predict(packet: HealthDataPacket): Promise<number> {
-        // 1. Buffer Data
-        // Features: [HeartRate, HRV, SpO2, Motion]
-        // Note: Packet might not have SpO2 explicitly, we derive or use stress as proxy if needed, 
-        // but let's assume we update DataGenerator to include it or we map stress -> SpO2 inverse proxy for demo.
+    async predict(packet: HealthDataPacket): Promise<{ probability: number; zScore: number; isAnomaly: boolean }> {
+        if (this.isCalibrating) {
+            this.calibrationBuffer.push(packet);
 
-        // For accurate mapping to the trained model:
-        // Model expects: [HR, HRV, SpO2, Motion]
-
-        // Simple proxy for SpO2 if missing (Stress up -> SpO2 down slightly)
-        const proxySpO2 = 98 - (packet.stress / 20);
-
-        const accMag = Math.sqrt(
-            packet.accelerometer.x ** 2 +
-            packet.accelerometer.y ** 2 +
-            packet.accelerometer.z ** 2
-        );
-
-        const featureVector = [packet.heartRate, packet.hrv, proxySpO2, accMag];
-
-        this.dataBuffer.push(featureVector);
-        if (this.dataBuffer.length > this.SEQUENCE_LENGTH) {
-            this.dataBuffer.shift(); // Remove oldest
+            if (this.calibrationBuffer.length >= this.CALIBRATION_SIZE) {
+                this.calculateBaseline();
+                this.isCalibrating = false;
+            }
+            return { probability: 0, zScore: 0, isAnomaly: false };
         }
 
-        // Only predict if we have enough data
-        if (this.dataBuffer.length < this.SEQUENCE_LENGTH) {
-            return 0; // Warming up
-        }
+        // Calculate Z-Scores
+        // Z = (Value - Mean) / StdDev
+        const zHR = Math.abs((packet.heartRate - this.stats.hrMean) / (this.stats.hrStdDev || 1));
+        const zHRV = Math.abs((packet.hrv - this.stats.hrvMean) / (this.stats.hrvStdDev || 1));
 
-        // FALLBACK: Rule-Based Logic
-        if (!this.session || !this.isLoaded) {
-            // Anomaly if HR > 110 OR Stress > 80 OR (HRV < 20 & HR > 90)
-            const isAbnormal =
-                packet.heartRate > 110 ||
-                packet.stress > 80 ||
-                (packet.hrv < 20 && packet.heartRate > 90);
+        // Combined Anomaly Score (Weighted)
+        // HR deviation is critical, HRV deviation is warning
+        const weightedScore = (zHR * 0.7) + (zHRV * 0.3);
 
-            return isAbnormal ? 0.95 : 0.05;
-        }
+        // Map Z-Score to Probability (Sigmoid-ish mostly for 0-1 range)
+        // Z=2 -> ~95% confidence (2 sigma)
+        // Z=3 -> ~99.7% confidence
+        // Normalizing: Value < 1.5 -> 0%, Value > 3.5 -> 100%
+        const probability = Math.min(1, Math.max(0, (weightedScore - 1.5) / 2));
 
-        try {
-            // Prepare Input Tensor: [1, 60, 4]
-            const flatData = this.dataBuffer.flat();
-            const inputData = Float32Array.from(flatData);
+        // Dynamic Update (Running Average) - "Learning" over time
+        // Alpha = 0.05 means new data affects baseline by 5%
+        this.updateStats(packet);
 
-            const tensor = new ort.Tensor('float32', inputData, [1, this.SEQUENCE_LENGTH, 4]);
+        return {
+            probability,
+            zScore: weightedScore,
+            isAnomaly: weightedScore > 2.5 // Threshold: 2.5 Sigma
+        };
+    }
 
-            // Run inference
-            const feeds: Record<string, ort.Tensor> = {};
-            feeds[this.session.inputNames[0]] = tensor;
+    private calculateBaseline() {
+        const hrs = this.calibrationBuffer.map(p => p.heartRate);
+        const hrvs = this.calibrationBuffer.map(p => p.hrv);
 
-            const results = await this.session.run(feeds);
+        this.stats = {
+            hrMean: this.mean(hrs),
+            hrStdDev: this.stdDev(hrs),
+            hrvMean: this.mean(hrvs),
+            hrvStdDev: this.stdDev(hrvs)
+        };
+        console.log("Model Calibrated:", this.stats);
+    }
 
-            // Output is LogSoftmax: [1, 2] -> [[log_prob_normal, log_prob_anomaly]]
-            // We want probability of anomaly
-            const outputData = results[this.session.outputNames[0]].data as Float32Array;
-            const logProbAnomaly = outputData[1];
-            const probAnomaly = Math.exp(logProbAnomaly);
+    private updateStats(packet: HealthDataPacket) {
+        // Simple Exponential Moving Average for drift adaptation
+        const alpha = 0.01; // Slow adaptation
+        this.stats.hrMean = (1 - alpha) * this.stats.hrMean + alpha * packet.heartRate;
+        this.stats.hrvMean = (1 - alpha) * this.stats.hrvMean + alpha * packet.hrv;
+        // StdDev update simplified for performance, usually kept static or re-calibrated
+    }
 
-            return probAnomaly;
+    private mean(data: number[]) {
+        return data.reduce((a, b) => a + b, 0) / data.length;
+    }
 
-        } catch (e) {
-            console.error("Inference Error (Fallback Activated)", e);
-            const isAbnormal = packet.heartRate > 110 || packet.stress > 80;
-            return isAbnormal ? 0.95 : 0.05;
-        }
+    private stdDev(data: number[]) {
+        const m = this.mean(data);
+        const variance = data.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / data.length;
+        return Math.sqrt(variance);
     }
 }
 

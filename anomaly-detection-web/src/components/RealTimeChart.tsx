@@ -58,17 +58,31 @@ export function RealTimeChart({ data, labels, label, color, min, max, normalMin,
         },
         scales: {
             x: {
-                grid: { display: false },
-                ticks: { display: false }
+                grid: {
+                    color: '#FFFFFF08', // Very subtle
+                    borderDash: [5, 5],
+                    tickLength: 0
+                } as any,
+                ticks: {
+                    color: '#9ca3af',
+                    font: {
+                        size: isMobile ? 9 : 11,
+                        family: 'Inter',
+                    },
+                    maxRotation: 0,
+                    autoSkip: true,
+                    maxTicksLimit: isMobile ? 4 : 8
+                }
             },
             y: {
                 min,
                 max,
                 grid: {
-                    color: '#2C2C2E',
+                    color: '#FFFFFF08',
+                    borderDash: [5, 5],
                     lineWidth: 1,
                     tickLength: 0
-                },
+                } as any,
                 border: { display: false },
                 ticks: {
                     color: '#9ca3af',
@@ -161,11 +175,17 @@ export function RealTimeChart({ data, labels, label, color, min, max, normalMin,
         elements: {
             point: {
                 radius: 0,
-                hitRadius: isMobile ? 30 : 20
+                hitRadius: 20,
+                hoverRadius: 6,
+                hoverBorderWidth: 2,
+                hoverBackgroundColor: color,
+                hoverBorderColor: '#ffffff'
             },
             line: {
-                tension: 0.4,
-                borderWidth: isMobile ? 1.5 : 2
+                tension: 0.4, // Organic curve
+                borderWidth: isMobile ? 2 : 3,
+                borderCapStyle: 'round',
+                borderJoinStyle: 'round',
             }
         }
     };
@@ -179,9 +199,9 @@ export function RealTimeChart({ data, labels, label, color, min, max, normalMin,
                 borderColor: color,
                 backgroundColor: (context) => {
                     const ctx = context.chart.ctx;
-                    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-                    gradient.addColorStop(0, color + '20'); // 12% opacity
-                    gradient.addColorStop(1, color + '00'); // 0% opacity
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                    gradient.addColorStop(0, color + '40'); // 25% opacity
+                    gradient.addColorStop(1, color + '00'); // Fade out
                     return gradient;
                 },
                 fill: true,

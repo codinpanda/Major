@@ -138,12 +138,10 @@ export class InsightsEngine {
 
         const recentData = this.history.slice(-48);
         let goodSleepLowStress = 0;
-        let poorSleepHighStress = 0;
 
         recentData.forEach((point) => {
             if (point.sleep) {
                 if (point.sleep >= 7 && point.stress < 50) goodSleepLowStress++;
-                if (point.sleep < 6 && point.stress > 60) poorSleepHighStress++;
             }
         });
 

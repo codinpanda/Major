@@ -1,6 +1,14 @@
-import { Calendar, TrendingUp, Activity } from 'lucide-react';
+import { Calendar, TrendingUp, Activity, Utensils } from 'lucide-react';
+import { useUser } from '../contexts/UserContext';
 
 export function History() {
+    const { user } = useUser();
+
+    // Sort logs by timestamp (newest first)
+    const sortedLogs = [...user.logs].sort((a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
     return (
         <div className="space-y-4 w-full">
             <div className="card-base p-6 bg-surface">
@@ -64,23 +72,35 @@ export function History() {
                     <div className="size-10 rounded-full bg-warning/10 text-warning flex items-center justify-center">
                         <Activity size={20} />
                     </div>
-                    <h3 className="font-bold text-primary">Recent Activity</h3>
+                    <div>
+                        <h3 className="font-bold text-primary">Recent Activity</h3>
+                        <p className="text-xs text-secondary">Manual logs & device events</p>
+                    </div>
                 </div>
                 <div className="space-y-3">
-                    <div className="flex justify-between items-center py-2 border-b border-white/5">
-                        <div>
-                            <div className="text-sm text-primary font-medium">Morning walk</div>
-                            <div className="text-xs text-secondary">8:30 AM</div>
+                    {sortedLogs.length === 0 ? (
+                        <div className="text-center py-4 text-secondary text-sm">
+                            No recent activities logged.
                         </div>
-                        <div className="text-sm text-secondary">32 min</div>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-white/5">
-                        <div>
-                            <div className="text-sm text-primary font-medium">Breathing exercise</div>
-                            <div className="text-xs text-secondary">2:15 PM</div>
-                        </div>
-                        <div className="text-sm text-secondary">5 min</div>
-                    </div>
+                    ) : (
+                        sortedLogs.map((log) => (
+                            <div key={log.id} className="flex justify-between items-center py-2 border-b border-white/5 last:border-0">
+                                <div className="flex items-center gap-3">
+                                    <div className={`size-8 rounded-full flex items-center justify-center ${log.type === 'meal' ? 'bg-success/10 text-success' : 'bg-blue-500/10 text-blue-500'
+                                        }`}>
+                                        {log.type === 'meal' ? <Utensils size={14} /> : <Activity size={14} />}
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-primary font-medium capitalize">{log.title}</div>
+                                        <div className="text-xs text-secondary">
+                                            {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="text-sm text-secondary">{log.details}</div>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>

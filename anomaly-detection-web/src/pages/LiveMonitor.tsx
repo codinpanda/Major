@@ -4,22 +4,30 @@ import { VitalsCard } from '../components/VitalsCard';
 import { RealTimeChart } from '../components/RealTimeChart';
 import { GuidanceOverlay } from '../components/GuidanceOverlay';
 import { HealthStatus } from '../components/HealthStatus';
+import { useUser } from '../contexts/UserContext';
 import { dataGenerator } from '../simulation/DataGenerator';
 import type { HealthDataPacket } from '../simulation/DataGenerator';
 import { inferenceEngine } from '../engine/InferenceEngine';
 
+import { ExportMenu } from '../components/ExportMenu';
+
 export function LiveMonitor() {
+    const { user } = useUser();
     const [dataHistory, setDataHistory] = useState<HealthDataPacket[]>([]);
     const [latest, setLatest] = useState<HealthDataPacket | null>(null);
     const [prediction, setPrediction] = useState<number>(0); // Store ML prediction
+    const [zScore, setZScore] = useState<number>(0);
+    const [isCalibrating, setIsCalibrating] = useState(true);
     const [isSimulating, setIsSimulating] = useState(false);
 
     useEffect(() => {
-        inferenceEngine.init();
+        // inferenceEngine.init(); // No longer async/needed for z-score
         const unsubscribe = dataGenerator.subscribe(async (packet) => {
             setLatest(packet);
-            const prob = await inferenceEngine.predict(packet); // Get actual prediction
-            setPrediction(prob);
+            const result = await inferenceEngine.predict(packet);
+            setPrediction(result.probability);
+            setZScore(result.zScore);
+            setIsCalibrating(inferenceEngine.getStatus().isCalibrating);
 
             setDataHistory(prev => {
                 const newVal = [...prev, packet];
@@ -55,13 +63,30 @@ export function LiveMonitor() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
                     <h1 className="text-3xl lg:text-4xl font-bold text-primary tracking-tight">
-                        {greeting}, <span className="text-accent">Priyanshu</span>
+                        {greeting}, <span className="text-accent">{user.name}</span>
                     </h1>
                     <p className="text-secondary text-lg mt-1">{today}</p>
                 </div>
 
                 {/* Simulation Control Center */}
                 <div className="flex items-center gap-2 bg-surface p-1.5 rounded-full border border-white/5 shadow-sm">
+                    {/* Calibration Status */}
+                    {isCalibrating && isSimulating && (
+                        <div className="px-4 flex items-center gap-2 text-sm font-medium text-warning animate-pulse">
+                            <span className="size-2 rounded-full bg-warning"></span>
+                            Calibrating...
+                        </div>
+                    )}
+
+                    {!isCalibrating && isSimulating && (
+                        <div className="px-4 hidden md:flex items-center gap-2 text-sm font-medium text-secondary border-r border-white/10 pr-4 mr-2">
+                            <span>Confidence:</span>
+                            <span className={zScore > 2.5 ? 'text-danger font-bold' : 'text-success'}>
+                                {zScore.toFixed(1)}σ
+                            </span>
+                        </div>
+                    )}
+
                     {!isSimulating ? (
                         <button
                             onClick={() => startSim('NORMAL')}
@@ -143,11 +168,19 @@ export function LiveMonitor() {
                             <p className="text-xs text-secondary">Real-time monitoring</p>
                         </div>
                     </div>
-                    <div className="px-3 py-1 rounded-full bg-background border border-white/5 text-xs font-medium text-secondary">
-                        Last Hour
+                    <div className="flex items-center gap-3">
+                        <div className="px-3 py-1 rounded-full bg-background border border-white/5 text-xs font-medium text-secondary">
+                            Last Hour
+                        </div>
+                        <ExportMenu
+                            chartId="hr-chart"
+                            chartTitle={`Health Data - ${new Date().toLocaleDateString()}`}
+                            data={dataHistory}
+                            headers={['timestamp', 'heartRate', 'hrv', 'stress']}
+                        />
                     </div>
                 </div>
-                <div className="h-64 lg:h-96 transition-all duration-300">
+                <div className="h-64 lg:h-96 transition-all duration-300" id="hr-chart">
                     <RealTimeChart label="Heart Rate" data={hrData} labels={labels} color="#00C7BE" min={40} max={160} normalMin={60} normalMax={100} />
                 </div>
             </div>

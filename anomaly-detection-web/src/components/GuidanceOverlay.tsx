@@ -5,9 +5,10 @@ import type { HealthDataPacket } from '../simulation/DataGenerator';
 interface GuidanceOverlayProps {
     latestData: HealthDataPacket | null;
     anomalyScore?: number;
+    zScore?: number;
 }
 
-export function GuidanceOverlay({ latestData, anomalyScore = 0 }: GuidanceOverlayProps) {
+export function GuidanceOverlay({ latestData, anomalyScore = 0, zScore = 0 }: GuidanceOverlayProps) {
     const [activeAlert, setActiveAlert] = useState<'PANIC' | 'HIGH_HR' | 'ML_ANOMALY' | null>(null);
     const [showBreathing, setShowBreathing] = useState(false);
     const [isDismissed, setIsDismissed] = useState(false);
@@ -32,21 +33,31 @@ export function GuidanceOverlay({ latestData, anomalyScore = 0 }: GuidanceOverla
                 ctx.resume();
             }
 
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
+            const now = ctx.currentTime;
 
-            osc.connect(gain);
-            gain.connect(ctx.destination);
+            // Medical Alarm Pattern: Beep-Beep-Beep (High Priority)
+            // Creates a sense of urgency but isn't as annoying as a continuous siren
+            for (let i = 0; i < 3; i++) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
 
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-            osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.5); // Drop pitch
+                const startTime = now + (i * 0.15); // Faster intervals: 0, 0.15, 0.3
+                const duration = 0.1;
 
-            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
 
-            osc.start();
-            osc.stop(ctx.currentTime + 0.5);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, startTime); // A5
+                osc.frequency.linearRampToValueAtTime(600, startTime + duration); // Slight drop for "alert" feel
+
+                gain.gain.setValueAtTime(0.15, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+                osc.start(startTime);
+                osc.stop(startTime + duration);
+            }
+
         } catch (e) {
             console.error("Audio play failed", e);
         }
@@ -57,8 +68,8 @@ export function GuidanceOverlay({ latestData, anomalyScore = 0 }: GuidanceOverla
 
         let newAlert: 'PANIC' | 'HIGH_HR' | 'ML_ANOMALY' | null = null;
 
-        // Prioritize ML Anomaly
-        if (anomalyScore > 0.8) {
+        // Prioritize ML Anomaly based on Z-Score if available, else Probability
+        if (zScore > 2.5 || anomalyScore > 0.8) {
             newAlert = 'ML_ANOMALY';
         } else if (latestData.heartRate > 115 && latestData.stress > 75) {
             newAlert = 'PANIC';
@@ -93,99 +104,116 @@ export function GuidanceOverlay({ latestData, anomalyScore = 0 }: GuidanceOverla
     if (!shouldShowAlert && !showBreathing) return null;
 
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4 max-w-sm w-full animate-slide-up">
-            {/* Critical Alert Card */}
-            {shouldShowAlert && (
-                <div className="bg-surface border border-critical/50 shadow-lg shadow-critical/10 rounded-xl overflow-hidden relative group">
-                    {/* Dismiss Button */}
-                    <button
-                        onClick={() => setIsDismissed(true)}
-                        className="absolute top-2 right-2 p-1 text-secondary hover:text-primary hover:bg-white/10 rounded-full transition-colors z-10"
-                        title="Dismiss alert"
-                    >
-                        <X size={16} />
-                    </button>
-
-                    <div className="bg-critical/10 p-4 border-b border-critical/20 flex items-start gap-3">
-                        <AlertTriangle className="text-critical shrink-0" size={24} />
-                        <div className="pr-6"> {/* Padding for dismiss button */}
-                            <h3 className="text-danger font-bold text-lg leading-tight">
-                                {activeAlert === 'ML_ANOMALY' ? "AI Anomaly Detected" : "Unusual Activity Detected"}
-                            </h3>
-                            <p className="text-secondary text-sm mt-1">
-                                {activeAlert === 'ML_ANOMALY'
-                                    ? `Our AI model is ${Math.round(anomalyScore * 100)}% confident this is an anomaly.`
-                                    : activeAlert === 'PANIC'
-                                        ? "Your heart rate and stress are unusually high together."
-                                        : "Your heart rate is higher than your normal baseline."}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="p-4 bg-surface space-y-3">
-                        <button
-                            onClick={() => setShowBreathing(true)}
-                            className="w-full flex items-center justify-center gap-2 bg-accent text-surface py-3 rounded-xl font-bold transition-transform active:scale-95 shadow-lg shadow-accent/20"
-                        >
-                            <Wind size={20} />
-                            Let's take a short break
-                        </button>
-
-                        <button
-                            className="w-full flex items-center justify-center gap-2 border border-secondary/20 text-secondary hover:text-primary hover:bg-white/5 py-3 rounded-xl font-medium transition-colors"
-                            onClick={() => {
-                                alert(`Calling trusted contact...\nGPS: 37.7749, -122.4194\nHR: ${latestData?.heartRate.toFixed(0)} BPM`);
-                            }}
-                        >
-                            <Phone size={18} />
-                            Call someone you trust
-                        </button>
-                    </div>
+        <>
+            {/* Full Screen Pulse Effect for Critical Alerts */}
+            {shouldShowAlert && (activeAlert === 'PANIC' || activeAlert === 'ML_ANOMALY') && (
+                <div className="fixed inset-0 z-40 pointer-events-none animate-in fade-in duration-300">
+                    <div className="absolute inset-0 bg-red-500/5 animate-pulse"></div>
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-red-500/10"></div>
                 </div>
             )}
 
-            {/* Breathing Exercise Modal/Overlay */}
-            {showBreathing && (
-                <div className="fixed inset-0 bg-background/95 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <button
-                        onClick={() => setShowBreathing(false)}
-                        className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
-                    >
-                        <X size={32} />
-                    </button>
+            <div className={`fixed z-50 flex flex-col gap-4 transition-all duration-500 ${activeAlert === 'PANIC' || activeAlert === 'ML_ANOMALY'
+                ? "inset-x-0 bottom-0 p-4 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:bg-black/40 sm:backdrop-blur-sm" // Mobile: Bottom, Desktop: Center Modal
+                : "bottom-0 right-0 p-4 sm:bottom-6 sm:right-6 sm:w-full sm:max-w-sm" // Toast style for less critical
+                }`}>
 
-                    <div className="text-center space-y-8 max-w-md w-full">
-                        <div className="relative size-64 mx-auto flex items-center justify-center">
-                            {/* Medical Breathing Animation */}
-                            <div className="absolute inset-0 bg-blue-500/10 rounded-full animate-ping [animation-duration:4s]"></div>
-                            <div className="absolute inset-4 bg-blue-500/10 rounded-full animate-pulse [animation-duration:4s]"></div>
-                            <div className="relative z-10 size-48 bg-surface border-4 border-blue-500 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.2)]">
-                                <span className="text-2xl font-medium text-blue-400">Inhale</span>
+                {/* Critical Alert Card */}
+                {shouldShowAlert && (
+                    <div className={`bg-surface border border-critical/50 shadow-2xl shadow-critical/20 overflow-hidden relative group animate-in slide-in-from-bottom-4 fade-in duration-300 ${activeAlert === 'PANIC' || activeAlert === 'ML_ANOMALY'
+                        ? "w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl border-2"
+                        : "w-full rounded-2xl"
+                        }`}>
+                        {/* Dismiss Button */}
+                        <button
+                            onClick={() => setIsDismissed(true)}
+                            className="absolute top-2 right-2 p-1 text-secondary hover:text-primary hover:bg-white/10 rounded-full transition-colors z-10"
+                            title="Dismiss alert"
+                        >
+                            <X size={16} />
+                        </button>
+
+                        <div className="bg-critical/10 p-4 border-b border-critical/20 flex items-start gap-3">
+                            <AlertTriangle className="text-critical shrink-0" size={24} />
+                            <div className="pr-6"> {/* Padding for dismiss button */}
+                                <h3 className="text-danger font-bold text-lg leading-tight">
+                                    {activeAlert === 'ML_ANOMALY' ? "AI Anomaly Detected" : "Unusual Activity Detected"}
+                                </h3>
+                                <p className="text-secondary text-sm mt-1">
+                                    {activeAlert === 'ML_ANOMALY'
+                                        ? `Significant deviation detected (${zScore.toFixed(1)}σ from baseline).`
+                                        : activeAlert === 'PANIC'
+                                            ? "Your heart rate and stress are unusually high together."
+                                            : "Your heart rate is higher than your normal baseline."}
+                                </p>
                             </div>
                         </div>
 
-                        <div>
-                            <h2 className="text-2xl font-bold text-white mb-2">Box Breathing Protocol</h2>
-                            <p className="text-gray-400">Follow the visual guide to regulate your autonomic nervous system.</p>
-                        </div>
+                        <div className="p-4 bg-surface space-y-3">
+                            <button
+                                onClick={() => setShowBreathing(true)}
+                                className="w-full flex items-center justify-center gap-2 bg-accent text-surface py-3 rounded-xl font-bold transition-transform active:scale-95 shadow-lg shadow-accent/20"
+                            >
+                                <Wind size={20} />
+                                Let's take a short break
+                            </button>
 
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                            <div className="p-3 rounded bg-surface border border-gray-800">
-                                <div className="text-xl font-bold text-white">4s</div>
-                                <div className="text-xs text-gray-500">Inhale</div>
+                            <button
+                                className="w-full flex items-center justify-center gap-2 border border-secondary/20 text-secondary hover:text-primary hover:bg-white/5 py-3 rounded-xl font-medium transition-colors"
+                                onClick={() => {
+                                    alert(`Calling trusted contact...\nGPS: 37.7749, -122.4194\nHR: ${latestData?.heartRate.toFixed(0)} BPM`);
+                                }}
+                            >
+                                <Phone size={18} />
+                                Call someone you trust
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Breathing Exercise Modal/Overlay */}
+                {showBreathing && (
+                    <div className="fixed inset-0 bg-background/95 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+                        <button
+                            onClick={() => setShowBreathing(false)}
+                            className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
+                        >
+                            <X size={32} />
+                        </button>
+
+                        <div className="text-center space-y-8 max-w-md w-full">
+                            <div className="relative size-64 mx-auto flex items-center justify-center">
+                                {/* Medical Breathing Animation */}
+                                <div className="absolute inset-0 bg-blue-500/10 rounded-full animate-ping [animation-duration:4s]"></div>
+                                <div className="absolute inset-4 bg-blue-500/10 rounded-full animate-pulse [animation-duration:4s]"></div>
+                                <div className="relative z-10 size-48 bg-surface border-4 border-blue-500 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.2)]">
+                                    <span className="text-2xl font-medium text-blue-400">Inhale</span>
+                                </div>
                             </div>
-                            <div className="p-3 rounded bg-surface border border-gray-800">
-                                <div className="text-xl font-bold text-white">4s</div>
-                                <div className="text-xs text-gray-500">Hold</div>
+
+                            <div>
+                                <h2 className="text-2xl font-bold text-white mb-2">Box Breathing Protocol</h2>
+                                <p className="text-gray-400">Follow the visual guide to regulate your autonomic nervous system.</p>
                             </div>
-                            <div className="p-3 rounded bg-surface border border-gray-800">
-                                <div className="text-xl font-bold text-white">4s</div>
-                                <div className="text-xs text-gray-500">Exhale</div>
+
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div className="p-3 rounded bg-surface border border-gray-800">
+                                    <div className="text-xl font-bold text-white">4s</div>
+                                    <div className="text-xs text-gray-500">Inhale</div>
+                                </div>
+                                <div className="p-3 rounded bg-surface border border-gray-800">
+                                    <div className="text-xl font-bold text-white">4s</div>
+                                    <div className="text-xs text-gray-500">Hold</div>
+                                </div>
+                                <div className="p-3 rounded bg-surface border border-gray-800">
+                                    <div className="text-xl font-bold text-white">4s</div>
+                                    <div className="text-xs text-gray-500">Exhale</div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )}
+            </div>
+        </>
     );
 }

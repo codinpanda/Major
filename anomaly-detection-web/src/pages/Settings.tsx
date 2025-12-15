@@ -1,13 +1,45 @@
 import { User, Bell, Activity, Shield, LogOut, ChevronRight, Share2 } from 'lucide-react';
 import { Toggle } from '../components/Toggle';
-import { useState } from 'react';
+import { useUser } from '../contexts/UserContext';
 
 export function Settings() {
-    const [notifications, setNotifications] = useState({
+    const { user, updateUser } = useUser();
+    // Use settings from context or fallbacks
+    const notifications = user.settings?.notifications || {
         alerts: true,
         summary: true,
         reminders: false
-    });
+    };
+    const thresholds = user.settings?.thresholds || {
+        maxHeartRate: 120,
+        stressAlert: 70
+    };
+
+    const updateNotifications = (key: keyof typeof notifications, value: boolean) => {
+        updateUser(prev => ({
+            settings: {
+                ...prev.settings,
+                notifications: {
+                    ...(prev.settings?.notifications || notifications),
+                    [key]: value
+                },
+                thresholds: prev.settings?.thresholds || thresholds
+            }
+        }));
+    };
+
+    const updateThresholds = (key: keyof typeof thresholds, value: number) => {
+        updateUser(prev => ({
+            settings: {
+                ...prev.settings,
+                notifications: prev.settings?.notifications || notifications,
+                thresholds: {
+                    ...(prev.settings?.thresholds || thresholds),
+                    [key]: value
+                }
+            }
+        }));
+    };
 
     return (
         <div className="space-y-6 w-full max-w-7xl mx-auto">
@@ -32,7 +64,7 @@ export function Settings() {
                             <div className="relative mb-4">
                                 <div className="size-24 lg:size-28 rounded-full bg-gradient-to-br from-accent to-purple-500 p-1 shadow-xl shadow-accent/20">
                                     <div className="w-full h-full rounded-full bg-surface flex items-center justify-center text-3xl font-bold text-white overflow-hidden">
-                                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Priyanshu" alt="Avatar" className="w-full h-full" />
+                                        <img src={user.avatar} alt="Avatar" className="w-full h-full" />
                                     </div>
                                 </div>
                                 <button className="absolute bottom-0 right-0 p-2 bg-primary text-surface rounded-full shadow-lg hover:scale-110 transition-transform">
@@ -40,7 +72,7 @@ export function Settings() {
                                 </button>
                             </div>
 
-                            <h3 className="text-2xl font-bold text-primary">Priyanshu</h3>
+                            <h3 className="text-2xl font-bold text-primary">{user.name}</h3>
                             <p className="text-secondary mb-6">Premium Member</p>
 
                             <div className="grid grid-cols-3 gap-4 w-full pt-6 border-t border-white/10">
@@ -82,7 +114,8 @@ export function Settings() {
                                 <label className="text-sm font-medium text-secondary">Full Name</label>
                                 <input
                                     type="text"
-                                    defaultValue="Priyanshu"
+                                    value={user.name}
+                                    onChange={(e) => updateUser({ name: e.target.value })}
                                     className="w-full bg-background border border-white/5 rounded-xl px-4 py-3 text-primary focus:outline-none focus:border-accent/50 focus:bg-accent/5 transition-all placeholder:text-white/20"
                                 />
                             </div>
@@ -90,7 +123,8 @@ export function Settings() {
                                 <label className="text-sm font-medium text-secondary">Email</label>
                                 <input
                                     type="email"
-                                    defaultValue="priyanshu@example.com"
+                                    value={user.email}
+                                    onChange={(e) => updateUser({ email: e.target.value })}
                                     className="w-full bg-background border border-white/5 rounded-xl px-4 py-3 text-primary focus:outline-none focus:border-accent/50 focus:bg-accent/5 transition-all placeholder:text-white/20"
                                 />
                             </div>
@@ -111,21 +145,21 @@ export function Settings() {
                                     <div className="font-medium text-primary">Health Alerts</div>
                                     <div className="text-xs text-secondary mt-0.5">Unusual patterns detected</div>
                                 </div>
-                                <Toggle checked={notifications.alerts} onChange={(c) => setNotifications({ ...notifications, alerts: c })} />
+                                <Toggle checked={notifications.alerts} onChange={(c) => updateNotifications('alerts', c)} />
                             </div>
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="font-medium text-primary">Daily Summary</div>
                                     <div className="text-xs text-secondary mt-0.5">Morning health report</div>
                                 </div>
-                                <Toggle checked={notifications.summary} onChange={(c) => setNotifications({ ...notifications, summary: c })} />
+                                <Toggle checked={notifications.summary} onChange={(c) => updateNotifications('summary', c)} />
                             </div>
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="font-medium text-primary">Reminders</div>
                                     <div className="text-xs text-secondary mt-0.5">Breathing & movement</div>
                                 </div>
-                                <Toggle checked={notifications.reminders} onChange={(c) => setNotifications({ ...notifications, reminders: c })} />
+                                <Toggle checked={notifications.reminders} onChange={(c) => updateNotifications('reminders', c)} />
                             </div>
                         </div>
                     </div>
@@ -142,16 +176,30 @@ export function Settings() {
                             <div>
                                 <div className="flex justify-between items-center mb-2">
                                     <label className="text-sm font-medium text-secondary">Max Heart Rate</label>
-                                    <span className="text-sm font-bold text-primary">120 BPM</span>
+                                    <span className="text-sm font-bold text-primary">{thresholds.maxHeartRate} BPM</span>
                                 </div>
-                                <input type="range" min="100" max="200" defaultValue="120" className="w-full accent-danger h-2 bg-background rounded-lg appearance-none cursor-pointer" />
+                                <input
+                                    type="range"
+                                    min="100"
+                                    max="200"
+                                    value={thresholds.maxHeartRate}
+                                    onChange={(e) => updateThresholds('maxHeartRate', parseInt(e.target.value))}
+                                    className="w-full accent-danger h-2 bg-background rounded-lg appearance-none cursor-pointer"
+                                />
                             </div>
                             <div>
                                 <div className="flex justify-between items-center mb-2">
                                     <label className="text-sm font-medium text-secondary">Stress Alert</label>
-                                    <span className="text-sm font-bold text-primary">70%</span>
+                                    <span className="text-sm font-bold text-primary">{thresholds.stressAlert}%</span>
                                 </div>
-                                <input type="range" min="50" max="100" defaultValue="70" className="w-full accent-warning h-2 bg-background rounded-lg appearance-none cursor-pointer" />
+                                <input
+                                    type="range"
+                                    min="50"
+                                    max="100"
+                                    value={thresholds.stressAlert}
+                                    onChange={(e) => updateThresholds('stressAlert', parseInt(e.target.value))}
+                                    className="w-full accent-warning h-2 bg-background rounded-lg appearance-none cursor-pointer"
+                                />
                             </div>
                         </div>
                     </div>

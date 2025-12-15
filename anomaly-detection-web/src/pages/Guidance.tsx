@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Wind, Heart, Phone, Activity, Sparkles } from 'lucide-react';
+import { Wind, Heart, Phone, Activity, Sparkles, Utensils } from 'lucide-react';
 import { BreathingExercise } from '../components/BreathingExercise';
+import { LogModal } from '../components/LogModal';
+import { useUser } from '../contexts/UserContext';
 import { InsightCard } from '../components/InsightCard';
 import { insightsEngine } from '../utils/insightsEngine';
 import { achievementSystem } from '../utils/achievements';
@@ -22,7 +24,9 @@ const item = {
 };
 
 export function Guidance() {
+    const { addLog } = useUser();
     const [showBreathing, setShowBreathing] = useState(false);
+    const [activeLogModal, setActiveLogModal] = useState<'exercise' | 'meal' | null>(null);
     const [breathingMode, setBreathingMode] = useState<'4-7-8' | 'box'>('4-7-8');
     const [insights, setInsights] = useState(insightsEngine.getInsights());
 
@@ -43,6 +47,19 @@ export function Guidance() {
     const handleBreathingClose = () => {
         setShowBreathing(false);
         achievementSystem.incrementBreathingSessions();
+    };
+
+    const handleLogSave = (title: string, details: string) => {
+        if (!activeLogModal) return;
+
+        addLog({
+            type: activeLogModal,
+            title,
+            details
+        });
+
+        // You could also trigger an achievement or toast here
+        setActiveLogModal(null);
     };
 
     return (
@@ -69,7 +86,7 @@ export function Guidance() {
             {insights.length > 0 && (
                 <motion.div variants={item} className="space-y-3">
                     <h3 className="text-sm font-bold text-primary uppercase tracking-wide px-1 flex items-center gap-2">
-                        <Sparkles size={14} className="text-accent" /> AI Insights
+                        <Activity size={14} className="text-accent" /> Health Insights
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {insights.slice(0, 3).map((insight) => (
@@ -121,6 +138,7 @@ export function Guidance() {
                         </div>
                     </motion.div>
 
+
                     {/* Health Tips */}
                     <motion.div variants={item} className="space-y-3">
                         <h3 className="text-sm font-bold text-primary uppercase tracking-wide px-1">Daily Tips</h3>
@@ -154,6 +172,36 @@ export function Guidance() {
                                     </div>
                                 </div>
                             </motion.div>
+
+                            {/* Nutrition */}
+                            <motion.div whileHover={{ y: -2 }} className="card-base p-5 bg-surface hover:shadow-lg transition-all">
+                                <div className="flex items-start gap-4">
+                                    <div className="size-10 rounded-full bg-success/10 text-success flex items-center justify-center shrink-0 mt-1">
+                                        <Utensils size={20} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-primary mb-2">Nutrition</h3>
+                                        <p className="text-sm text-secondary leading-relaxed">
+                                            Include more fiber in your diet. Whole grains, fruits, and vegetables can improve digestion and heart health.
+                                        </p>
+                                    </div>
+                                </div>
+                            </motion.div>
+
+                            {/* Hydration */}
+                            <motion.div whileHover={{ y: -2 }} className="card-base p-5 bg-surface hover:shadow-lg transition-all">
+                                <div className="flex items-start gap-4">
+                                    <div className="size-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0 mt-1">
+                                        <Activity size={20} />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-primary mb-2">Hydration</h3>
+                                        <p className="text-sm text-secondary leading-relaxed">
+                                            Drink at least 8 glasses of water daily. Proper hydration helps maintain energy levels and brain function.
+                                        </p>
+                                    </div>
+                                </div>
+                            </motion.div>
                         </div>
                     </motion.div>
                 </div>
@@ -172,11 +220,23 @@ export function Guidance() {
                                 </div>
                                 <span className="text-sm font-medium text-primary">Quick Breath</span>
                             </button>
-                            <button className="w-full flex items-center gap-3 bg-background hover:bg-surfaceHover border border-white/5 rounded-xl p-3 transition-colors text-left">
+                            <button
+                                onClick={() => setActiveLogModal('exercise')}
+                                className="w-full flex items-center gap-3 bg-background hover:bg-surfaceHover border border-white/5 rounded-xl p-3 transition-colors text-left"
+                            >
                                 <div className="size-8 rounded-full bg-success/10 text-success flex items-center justify-center">
                                     <Activity size={16} />
                                 </div>
                                 <span className="text-sm font-medium text-primary">Log Exercise</span>
+                            </button>
+                            <button
+                                onClick={() => setActiveLogModal('meal')}
+                                className="w-full flex items-center gap-3 bg-background hover:bg-surfaceHover border border-white/5 rounded-xl p-3 transition-colors text-left"
+                            >
+                                <div className="size-8 rounded-full bg-warning/10 text-warning flex items-center justify-center">
+                                    <Utensils size={16} />
+                                </div>
+                                <span className="text-sm font-medium text-primary">Log Meal</span>
                             </button>
                         </div>
                     </motion.div>
@@ -204,6 +264,14 @@ export function Guidance() {
                 isOpen={showBreathing}
                 onClose={handleBreathingClose}
                 mode={breathingMode}
+            />
+
+            {/* Logging Modal */}
+            <LogModal
+                isOpen={!!activeLogModal}
+                onClose={() => setActiveLogModal(null)}
+                type={activeLogModal}
+                onSave={handleLogSave}
             />
         </motion.div>
     );

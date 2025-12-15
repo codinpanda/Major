@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, X, Send, Bot } from 'lucide-react';
+import { useUser } from '../contexts/UserContext';
 
 interface Message {
     id: string;
@@ -10,11 +11,13 @@ interface Message {
 }
 
 export function ChatAssistant() {
+    const { user } = useUser();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
-        { id: '1', text: "Hi! I'm your health assistant. How can I help you today?", sender: 'bot', timestamp: new Date() }
+        { id: '1', text: `Hi ${user.name}! I'm your health assistant. How can I help you today?`, sender: 'bot', timestamp: new Date() }
     ]);
     const [input, setInput] = useState("");
+    const [isTyping, setIsTyping] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -84,10 +87,24 @@ export function ChatAssistant() {
         }
 
         // 3. Fallback / Contextual Vitals
-        if (lower.includes('heart') || lower.includes('hr')) return "Your heart rate is currently stable. If it exceeds 110 BPM while resting, I'll alert you.";
+        if (lower.includes('heart') || lower.includes('hr')) return `Your heart rate is currently stable. Your max threshold is set to ${user.settings?.thresholds?.maxHeartRate || 120} BPM.`;
         if (lower.includes('stress')) return "I'm monitoring your HRV. Try the Box Breathing exercise if you feel overwhelmed.";
-        if (lower.includes('anomaly') || lower.includes('alert')) return "I detected a minor anomaly 5 minutes ago, but your vitals have normalized.";
-        if (lower.includes('hello') || lower.includes('hi')) return "Hello! I can help with navigation ('Go to Settings') or health questions ('I feel dizzy').";
+        if (lower.includes('workout') || lower.includes('run') || lower.includes('exercise')) {
+            const lastExercise = user.logs.find(l => l.type === 'exercise');
+            if (lastExercise) {
+                return `I see you logged '${lastExercise.title}' (${lastExercise.details}) recently. Great job staying active!`;
+            }
+            return "I haven't seen any exercise logs recently. Try logging your next workout in the Guidance section!";
+        }
+        if (lower.includes('eat') || lower.includes('food') || lower.includes('meal') || lower.includes('diet')) {
+            const lastMeal = user.logs.find(l => l.type === 'meal');
+            if (lastMeal) {
+                return `Your last meal was '${lastMeal.title}' (${lastMeal.details}). Tracking nutrition helps optimize your energy levels.`;
+            }
+            return "Tracking your meals helps identify what affects your heart rate. You can log meals in the Guidance section.";
+        }
+        if (lower.includes('anomaly') || lower.includes('alert')) return "I'll alert you if I detect any anomalies based on your patterns.";
+        if (lower.includes('hello') || lower.includes('hi')) return `Hello ${user.name}! I can help with navigation ('Go to Settings') or health questions ('I feel dizzy').`;
 
         return "I can help with health insights or navigation. Try asking about 'HRV', 'Anxiety', or say 'Go home'.";
     };
@@ -104,6 +121,7 @@ export function ChatAssistant() {
 
         setMessages(prev => [...prev, userMsg]);
         setInput("");
+        setIsTyping(true);
 
         // Simulated Bot Response
         setTimeout(() => {
@@ -115,7 +133,8 @@ export function ChatAssistant() {
                 timestamp: new Date()
             };
             setMessages(prev => [...prev, botMsg]);
-        }, 800);
+            setIsTyping(false);
+        }, 1500);
     };
 
     return (
@@ -156,6 +175,15 @@ export function ChatAssistant() {
                             </div>
                         </div>
                     ))}
+                    {isTyping && (
+                        <div className="flex justify-start">
+                            <div className="bg-[#24292e] text-gray-400 rounded-2xl rounded-bl-none p-3 text-xs sm:text-sm flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                                <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"></span>
+                            </div>
+                        </div>
+                    )}
                     <div ref={messagesEndRef} />
                 </div>
 

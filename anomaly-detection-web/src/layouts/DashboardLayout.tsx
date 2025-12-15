@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { ChatAssistant } from '../components/ChatAssistant';
 import { useTheme } from '../contexts/ThemeContext';
 import { Sidebar } from '../components/Sidebar';
+import { useUser } from '../contexts/UserContext';
 
 function NavItem({ to, icon: Icon, label }: { to: string, icon: React.ElementType, label: string }) {
     const location = useLocation();
@@ -29,6 +30,7 @@ function NavItem({ to, icon: Icon, label }: { to: string, icon: React.ElementTyp
 
 export function DashboardLayout() {
     const { theme, toggleTheme } = useTheme();
+    const { user } = useUser();
 
     return (
         <div className="flex flex-col lg:flex-row h-screen bg-background text-primary font-sans overflow-hidden">
@@ -40,7 +42,7 @@ export function DashboardLayout() {
                 <header className="flex-none h-16 sm:h-20 md:h-24 bg-background/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 z-40 border-b border-white/5 lg:px-8">
                     <div className="min-w-0 flex-1">
                         <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-primary truncate">
-                            Good Morning, Priyanshu
+                            Good Morning, {user.name}
                         </h1>
                         <div className="flex items-center gap-2 mt-0.5 sm:mt-1">
                             <span className="flex size-2 rounded-full bg-accent animate-pulse"></span>
