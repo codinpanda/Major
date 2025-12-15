@@ -1,0 +1,744 @@
+AI-Based Real-Time Anomaly Detection for 
+Preventive Healthcare Using Smartwatch Sensor 
+Data 
+ 
+Dr. Rajesh L 
+Department of Information Science and Engineering, 
+Dayananda Sagar Academy of Technology and Management, 
+Bengaluru, Karnataka, India 
+raj.nimmava@gmail.com 
+ 
+Rahul GN 
+Department of Information Science and Engineering, 
+Dayananda Sagar Academy of Technology and Management, 
+Bengaluru, Karnataka, India 
+rahul.gn2626@gmail.com 
+ 
+Kritika Rajesh Moger 
+Department of Information Science and Engineering, 
+Dayananda Sagar Academy of Technology and Management, 
+Bengaluru, Karnataka, India 
+kritikamoger04@gmail.com 
+ 
+ 
+Abstract—Smart watches have become potent multimodal 
+sensing devices and can continually measure physiological and 
+movement measurements (heart rate, SpO 2, accelerator, gy - 
+roscope streams). These indicators have a high promise in 
+early warning of unfavourable health outcomes and long -term 
+health conditions. Nevertheless, the current consumer systems  
+are generally retrospective in nature, do not offer customized 
+real-time intelligence and are less integrated to support anomaly 
+identification, daily health and user -centered behavioral advice. 
+To eliminate these shortcomings, the present paper proposes a 
+coherent, real-time AI-based model, which turns sensor readings 
+of a smartwatch into a smart health monitoring and scheduling 
+agent that runs in a web-based PC-based environment. 
+The suggested system continuously accepts bio –signal data  
+sent by a Samsung Galaxy Watch through Bluetooth Low  
+Energy (BLE) and performs all the work on the equipment 
+of the user with optimized inference on WebAssembly-based 
+and ONNX. A hybrid LSTM–GRU model is used to model 
+the temporal patterns to detect abnormalities in real -time and 
+identify abnormal physiological patterns early. Simultaneously,  
+a health dashboard can be used to visualise live HR, SpO 2, 
+activity, stress-like deviations and trends of the day, assisting 
+in self -monitoring. In addition to the anomaly detection, the 
+system integrates a hybrid scheduling assistant that has rule - 
+based logic as well as lightweight personalization modules. This 
+assistant gives hydration notifications, sleep schedule suggestions, 
+activity notifications, screen -time notifications, and medication 
+notifications based on behavioral patterns and daily physiological 
+fluctuations. 
+Data processing is done on -device, transmission is encry pted 
+using BLE and no data is stored on the cloud. The results 
+of experimental assessment on the WESAD dataset and live 
+smartwatch streams show very good results: a high accuracy of 
+Priyanshu Saini 
+Department of Information Science and Engineering, 
+Dayananda Sagar Academy of Technology and Management, 
+Bengaluru, Karnataka, India. 
+priyanshusaini258@gmail.com 
+ 
+Anshul Jhaveri 
+Department of Information Science and Engineering, 
+Dayananda Sagar Academy of Technology and Management, 
+Bengaluru, Karnataka, India 
+anshuljhaveri018@gmail.com 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+90.1%, a low inference latency (3550 ms), and an end-to-end delay 
+of less than 1.8 seconds to operate in real -time. These findings 
+show that the development of an integrated system of anomaly 
+detection, continuous tracking, and individual scheduling in a 
+single web-based wearable analytics is a viable way forward to 
+providing easily accessible, privacy-friendly, and proactive digital 
+healthcare. 
+Keywords—Deep Learning, Time -Series Modeling, LSTM –
+GRU Networks, Autoencoder -Based Anomaly Detection, Edge 
+AI, Lightweight Neural Networks, Multimodal Sensor Fusion, 
+Real-Time Inference, Personalized Modeling, Preventive Health 
+Analytics. 
+ 
+I. INTRODUCTION 
+Wearable devices have become multi -functional health - 
+monitoring devices that can continuously record multimodal 
+health physiological measurements such as heart rate (HR ), 
+blood oxygen saturation (SpO 2 ), photoplethysmography 
+(PPG), and inertial information. The signals will be very  
+useful in getting information about cardiovascular well -being, 
+stress, and behavioral pattern. Deep learning has played an 
+important role in understanding these physiological time - 
+series as noted in the most recent reviews on wearable -based 
+health monitoring and sensor analytics These physiological 
+time-series have been significant in understanding with the 
+latest reviews on wearable-based health monitoring and sensor 
+analytics citing the use of deep learning in the latter as 
+mentioned in the most recent reviews on wearable-based health 
+monitoring and sensor analytics reviews are included in the 
+title DeepWearables [2], [3]. Deep neural networks have also 
+been useful in modeling physiological variability, especially 
+HRV-based stress and anomaly indicators of stress levels and 
+characteristics of an individual user [4]. 
+The concomitant advancements in anomaly detection in - 
+dicate that recurrent models such as LSTM and GRU can  
+learn abnormal physiological behaviour during real -time use 
+of wearables during anomaly detection tasks and anomaly 
+prediction tasks, respectively, as it is demonstrated with respect 
+to sleep and pain detection [1]. Meanwhile, modern edge -AI 
+implementation software, such as WebAssembly, and ONNX 
+Runtime Web, can be used to execute machine learning infer - 
+ence directly on web browsers with near -native performance, 
+making wearables reachable directly to webAI or via software 
+proxies or intermediate hardware, using the ONNX runtime 
+Web proxy interface to communicate with the webAI to the 
+software stack [7]. Together with the streaming that has been 
+implemented with the support of Bluetooth Low Energy (BLE) 
+[9], these advances allow creating fully local health analytics 
+systems without privacy. 
+Individualized behavioral guidance is also emphasized in 
+digital health studies and has proven to positively influence 
+adherence and long -term results in terms of adhe rence to 
+behavior change interventions and procedures  [10], [11]. 
+Following these tendencies, this work suggests a cohesive, 
+browser-based framework that will combine real-time anomaly 
+detection and continuous monitoring, as well as individual 
+scheduling based on smartwatch data. 
+A. Problem Statement 
+Despite the fact that new smartwatches have gathers of 
+physiological and movement data, current consumer health 
+apps are mostly designed to deliver summative views as 
+opposed to real -time analysis and proactive su ggestions. The 
+regular reports of sleep, heart rate, or activity data tend to reach 
+the user on a daily or weekly basis, however, the user is not 
+usually alerted to abnormal HR spikes, stress -like responses, 
+or irregular motion patterns, until far later on . More than that, 
+current wearable ecosystems rarely provide continuous moni - 
+toring with personalized behavioral assistance, such as water - 
+drinking reminders, sleep reminders, screen-time minimization 
+and medication reminders. 
+Regarding system, there are  other restrictions. To begin 
+with, most of the anomaly detection models are based on 
+the cloud -computing model, which makes it questionable in 
+terms of privacy, latency, and data ownership [7]. Second, mo- 
+tion artifacts make physiological cues (PPG and accelerators 
+data) highly susceptible to preprocessing and require robust 
+preprocessing and time model strategies Prestige Personality 
+Digital [3]. Third, the current scheduling and recommenda - 
+tion technologies in digital health are often not contextually  
+personalized, meaning that they do not change the reminders 
+according to the habits, day-to-day variability, or physiological 
+patterns of each user group member [10], [11]. 
+With these lapses, the fundamental question that is taken 
+care of by this work is: 
+How could real-time data of continuous smartwatch 
+sensors be converted into a unified and privacy - 
+preserving web-based platform capable of real -time 
+anomaly detection, continuous health monitoring, 
+and personalized hybrid scheduling support? 
+In order to  address this challenge, the system proposed 
+should: (1) will reliably stream live smartwatch data using 
+BLE; (2) real time preprocess and model biosignals; (3) 
+perceive low -latency physiological aberrations; (4) provide 
+understandable health data in the f orm of a web dashboard; 
+and (5) integrate custom scheduling interventions, depending 
+on user behaviour. 
+B. Contributions 
+The paper demonstrates a multifunctional, AI -based wear- 
+able health monitoring device, which combines anomaly de - 
+tection, live physiology view, and individual scheduling as - 
+sistance as an element of privacy -aware web application. The 
+main contributions include the following: 
+• A smartwatch -to-web real -time streaming pipeline: 
+We develop a BLE -based data collection system that 
+streams HR, SpO 2, accelerators, and gyroscopes data of  
+a Samsung Galaxy Watch to a web interface with low 
+latency [9]. 
+• A hybrid LSTM –GRU anomaly detector model: A 
+deep recurrent architecture, which is optimized to model 
+temporal biosignals, is used in the system to detect 
+the abnormal physiological patterns of an individual, 
+including abnormal HR, abnormal physiological rhythms, 
+and stress indicators, among others, with high accuracy 
+[1], [2]. 
+• A web -based on -device inference engine: Using We - 
+bAssembly and ONNX Runtime Web, the entire ML 
+pipeline runs locally inside the browser, ensuring user 
+privacy, reduced latency, and independence from cloud 
+services [7]. 
+• A detailed real -time health dashboard: The PC web 
+app presents streamlined physiological data, past trends, 
+and alerting concerns and helps users monitor health 
+indicators, including HR, SpO 2, motion intensity, stress - 
+like variability, and overall patterns of daily trends. 
+• A hybrid scheduling and wellness assistant: We 
+introduce a dual -layer behavioral assistant combining 
+rule-based reminders (hydration, sleep, activity, screen - 
+time breaks, medication) with lightweight personalization 
+modules that adapt notifications based on user habits, 
+physiological trends, and past compliance [10], [11]. 
+• Evaluation using benchmark and live datasets: Exper- 
+iments on the WESAD dataset and live smartwatch data 
+demonstrate realistic performance with 90% anomaly de- 
+tection accuracy, 35–50 ms inference latency in-browser, 
+and end-to-end responsiveness under 1.8 seconds. 
+Together, these contributions combined provide a single 
+platform, which is capable of transforming wearable health 
+monitoring into the active, personalized and privacy respecting 
+digital health support. 
+II. BACKGROUND 
+Wearables have evolved to become sophisticated physio - 
+logical sensing systems with the abilities to perform real - 
+time health tracking. The smartwatches today combine optical 
+sensors to measure photoplethysmography (PPG), electrical 
+sensors to measure heart -rate variabi lity (HRV), and inertial 
+sensors (accelerators and gyroscopes). Such streams of contin- 
+uous data allow measuring cardiovascular behavior, breathing 
+patterns, intensity of movements, and physiological responses 
+of stress. PPG and HRV signals, along with motion cues, have 
+turned out to be powerful predictors of anomalies in the form 
+of irregular heart rate variations, stress, and abnormal activity 
+rates, as was shown in the recent works [2], [3]. 
+Physiological time -series, on the other hand, are subject 
+specific and noisy. Signal quality is commonly compromised 
+by motion artifacts, variations in illumination, the variation 
+in contact with the skin -sensors, and sampling variations. As 
+such, real-time surveillance systems need to have a powerful 
+filtering, synchronization, and time modeling algorithms to 
+generate insightful information. Deep recurring neural net - 
+works, especially LSTM and GRU designs have been shown to 
+be effective in long-range temporal dependencies on wearable 
+data and high -level performance in wearable anomaly detec - 
+tion and stress -related prediction tasks [1]. These models are 
+currently popular with wearable-based monitoring systems. 
+The other significant change in technology is the advent of 
+machine learning based on browsers. Recent architectures like 
+the WebAssembly (WASM) system or ONNX Runtime Web 
+enable deep-learning models to be executed with performance 
+in a typical web browser rather than being deployed on the 
+cloud, where there is a risk of latency, privacy, and constant 
+connectivity problems [7]. This allows local inference on a  
+PC of a user, but maintains privacy as well as allowing almost 
+native execution speed. 
+Communication between the smartwatch and PC is usually 
+facilitated by the Bluetooth Low Energy (BLE). BLE offers 
+real-time transmission of heart rate, SpO 2, and motion data at 
+moderate battery cost. The current assessment indicates that 
+smartwatches have a power consumption of around 5 -8% per 
+hour to support real-time streaming applications [9]. The basis 
+of constructing reliable real-time monitoring pipelines is based 
+on the stable streaming and timestamp alignment. 
+Lastly, digital health has continued to support personalised 
+behavioural advice. The recent health apps combine physio - 
+logical measurements with rule -based or adaptive recommen - 
+dation engines to aid in hydration habits, sleep health, drug 
+intake, and exercise habits. It has been shown that hybrid 
+methods (a combination of regular reminders and personal - 
+ization based on the context) result in increased co mpliance 
+and long -term habit formation by the user [10], [11]. These 
+trends endorse the integration of a light smart scheduler into 
+wearable-based monitoring systems. 
+Combined, these advancements on wearable sensing, time 
+model, on -node inference, BLE -based data collection, and 
+personalized digital health constitute the basis of the real 
+time, privacy-saving health monitor and schedule framework, 
+as suggested in this work. 
+III. RELATED WORK 
+The current innovations in wearable sensing, physiological 
+anomaly detection and browser based machine learning have 
+greatly enlarged the potential of real -time health monitoring 
+systems. In this section, we review the previous studies 
+in five main areas that the development of our proposed 
+framework directly relies on: ( 1) physiological sensing and 
+digital biomarkers, (2) anomaly detection by deep-learning, (3) 
+edge and web -based pipelines, (4) BLE -based real-time data 
+acquisition, and (5) personalized digital health and scheduling 
+systems. 
+A. Physiological Sensing and Digital Biomarkers 
+he history of wearable biosensors has already secured PPG, 
+HR, HRV and motion cues, as valid digital biomarkers of 
+continuous cardiovascular and behavioral monitoring. As it 
+was shown by Faust et al. [3] PPG signals and deep learning 
+used together are able to identify cardiorespiratory abnormal - 
+ities with high accuracy. Charlton et al. aided the review of 
+deep learning approaches in the context of wearables, with 
+multimodal fusion-based stress, fatigue, and cardiac anomaly 
+detection being the most effective ones. [2] The papers high - 
+light the potential of these wrist -based sensors to be used in 
+real-time physiological monitoring, which is what our sensing 
+channels are based on. 
+B. Deep Learning for Wearable Anomaly Detection 
+Wearable anomaly det ection is a research field that is 
+advancing fast. Hossain et al. tested LSTM and GRU models 
+to identify abnormal heart and activity patterns using HRV and 
+accelerator records [1]. Their results demonstrate that recurrent 
+networks are better than classical  ML techniques in learning 
+temporal dependencies in motion noise. Recently, Guo et 
+al. proposed transformer -based stress sensors and anomaly 
+classifiers, transformer -based wearable stress and anomaly 
+classifiers that apply better to long -range dependencies  but 
+with greater computation cost [5]. These lessons inform us 
+in selecting a hybrid recurrent model (LSTM -GRU) that is 
+low-latency optimized on web platforms. 
+C. Edge Computing and Browser-Based Inference 
+Edge computing and Browser -Based Inference Edge com - 
+puting is primarily meant to make computers and devices 
+outside the datacenters useful in the development, training  
+and testing of machine learning and artificial intelligence. 
+Conventional cloud-reliant analytics have privacy limitations, 
+latency limitations and connectivity limitations. Luo et al. [7] 
+demonstrated that machine learning (through WebAssembly 
+and ONNX runtime Web) via a browser can reach near-native 
+inference through deep models with nearly no modification. 
+The implications of their results  are that it is possible to 
+execute complex models on client devices without server 
+processing, and this fits in with our real -time web applica - 
+tion architecture. Other assessments of deep-learning models 
+deployed on the web support t he feasibility of private, fast,  
+and entirely client inference. 
+D. BLE Streaming and Real-Time Monitoring Stability 
+Having a dependable real -time physiological surveillance 
+entails uniform data transmission of the wearable device. The 
+article by Singh et al. [9] emade a comparison of BLE- 
+based continuous streaming and demonstrated that the latest 
+smartwatch devices could offer multi -sensor streaming with 
+low packet loss rates and satisfactory battery consumption. 
+Such findings justify the choice of BLE as the  main transport 
+protocol to be used in HR, SpO2, and motion data transmission 
+during the processing of real-time web applications. Our jitter 
+compensation and timing synchronization are also informed 
+with their findings. 
+E. Personalized Digital Health and Scheduling Systems 
+Health platforms based on wearable continue to integrate 
+behavioral support technologies like warnings, customized 
+interventions, and habit-forming technologies. Peiris et al. [10] 
+revealed that hybrid digital interventions, which are a combina- 
+tion of fixed -interval reminders and adaptive personalization, 
+enhance the habit adherence and the long-term behavioral out- 
+comes .Zhao et al. [11] proved that it is effective to implement 
+ML-based recommendation engines in the context of providing 
+health recommendations based on the use of physiological  
+and behavioral data. These researches support the idea that 
+a smart scheduling assistant should be incorporated into our 
+architecture so that users could be provided with customized 
+lifestyle prom pts based on the state of their physiological 
+condition as well as their daily schedule. 
+F. Summary of Research Gaps 
+Concisely, it is important to highlight the research gaps in 
+this study as follows: Although earlier research possesses solid 
+backgrounds in physiological sensing, anomaly detection and 
+customized health recommendation systems, they do not study 
+them comprehensively in most instances. Few existing works 
+unify: 
+1) real-time BLE streaming from a smartwatch, 
+2) inference with browser-based deep-learning, and no de - 
+pendence on the cloud, 
+3) continuous detection of physiological abnormalities, 
+4) and a customized scheduling managerial incorporated in 
+the same platform. 
+This gap stimulates the development of our end-to-end system 
+that integrates these elements into one privacy-aware web ap- 
+plication of real-time health monitoring and custom behaviour 
+support. 
+IV. METHODOLOGY 
+This section is the full design of the proposed system 
+of health monitoring and anomaly detection in real-time. 
+In contrast to classical cloud -based pipelines, everything is 
+computed locally in the web browser of the user, such as data 
+acquisition, preprocessing, model inference and visualization. 
+The sensor data of Smartwatch are transmitted in the form of 
+Bluetooth Low Energy (BLE) streams, processed in real-time, 
+sent to an ONNX -deployed LSTMGRU hybrid model, which 
+is implemented on the WebAssembly and displayed on a live 
+dashboard. An intelligent, personalized scheduling assistant, 
+through anomaly detection, is supplemented w ith intelligent 
+behavioral suggestions and reminders. 
+A. System Overview 
+The overall system architecture is illustrated in Fig. 1.The 
+pipeline will be made up of four layers: 
+1) Data Acquisition Layer: Smartwatch data retrieval with 
+Web Bluetooth (BLE). 
+2) Preprocessing Layer: Noise Filters, normalization, seg- 
+mentation, and feature extractors. 
+3) Inference Layer: LSTM–GRU hybrid model executed 
+using ONNX Runtime Web and WebAssembly acceler - 
+ation [7]. 
+4) User Interaction Layer: Real-time dashboard, anomaly 
+notifications, and customized scheduling support. 
+It is all local with minimal latency and high privacy rates  
+of operations in place. [9]. 
+ 
+Fig. 1: System architecture for real -time browser -based 
+anomaly detection. 
+ 
+B. Datasets 
+Two datasets were taken to develop and evaluate the models: 
+• WESAD [12]:Multimodal data (PPG, ECG, accelerome- 
+try, EDA, and respiration) in multimodal format. It offers 
+training labels to supervised training. 
+• Live Smartwatch Streams :s This is the data of Sam - 
+sung Galaxy Watch HR, HRV proxies, SpO2, accelerator 
+and gyroscope, which has been recorded to ensure the 
+practicality of BLE throughput, latency and dashboard 
+reactiveness. 
+Such a combination guarantees the quality of supervised 
+training and reasonable deployment testing. 
+Anomaly Detection 
+& Alerts 
+Hybrid LSTM–GRU 
+(ONNX Runtime Web) 
+Preprocessing & 
+Feature Extraction 
+BLE Data Acquisition 
+(Web Bluetooth) 
+Web Dashboard 
+(Local Storage) 
+Smartwatch Sensors 
+(HR, SpO2, Motion) 
+C. Real-Time Data Acquisition and Synchronization 
+The procedure of acquiring and synchronizing real-time data 
+is known as real-time data acquisition and synchronization. 
+Sensor data streaming takes place over BLE GATT char - 
+acteristics over the Web Bluetooth API. BLE packets can 
+be received at different times, so the synchronization can be 
+achieved using the following strategies: 
+• Timestamp alignment: Device timestamps are used to 
+align multisensor readings. 
+• Gap compensation: Linear interpolation Linear interpo - 
+lation is used when gaps between packets are less than 
+200 ms. 
+• Sliding windowing : Signals are buffered in 5 -second 
+windows overlapped by 50%. 
+Monitored throughput matches with the normal smartwatch 
+BLE rates (85–90 Hz for motion sensors and about ∼1 Hz for 
+HR/SpO2) [9]. 
+D. Preprocessing and Feature Engineering 
+hese processes process the information in data and impose 
+operations on it to enhance the outcome of the following 
+classification step. Raw wearable signals are vulnerable to 
+noise, motion artifact as well as user variability. Preprocessing 
+pipeline represented in Fig. 2, processes: 
+• bandpass filtering with a 5th-order Butterworth filter (0.5 
+- 12 Hz), 
+• Normalization using z-score or min–max scaling, 
+• Window segmentation (5 s, 50% overlap), 
+• Time-domain and  spectral feature extraction (RMSSD, 
+entropy, dominant frequency, energy). 
+All the operations are implemented on WebAssembly ker - 
+nels, and preprocessing time remains less than 10 ms. 
+E. LSTM–GRU Hybrid Model Architecture 
+The LSTM -GRU Hybrid Model Architecture is a sub - 
+section of the original LSTM Model Architecture, which is 
+a hybrid between the LSTM and GRU models. 
+The model is a combination of LSTM layers (to provide 
+long-range temporal modeling) and GRU layers (to provide 
+computing efficiency). The architecture, as illustrated in Fig. 3, 
+includes: 
+• Two LSTM layers (64 units each), 
+• Two GRU layers (64 units each), 
+• Dropout (0.3), 
+• Dense softmax output. 
+WESAD is used to train the model offline and is deployed 
+as an ONNX model running with WebAssembly [7]. 
+ 
+ 
+ 
+ 
+ 
+ 
+Fig. 3: LSTM–GRU hybrid model architecture used for real- 
+time anomaly detection. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Fig. 2: Preprocessing and feature-extraction pipeline for smart- 
+watch sensor data. 
+F. Real-Time Inference Pipeline 
+This section outlines the pipeline the project will make use 
+of in order to generate real-time predictions. 
+These steps are followed in the real-time inference flow 
+which is depicted in Fig. 4: 
+1) Convert feature vector to ONNX tensor, 
+2) LSTM–GRU model: run on WebAssembly, 
+3) Generate anomaly probability score, 
+4) Apply adaptive thresholding, 
+5) refresh browser dashboard and generate alerts. 
+Consumer devices have an end-to-end latency that is less 
+than 100 ms. 
+Feature Extraction 
+(Time & Frequency) 
+Normalization 
+(Z-score / Min–Max) 
+Noise Filtering 
+(Butterworth 0.5–12 Hz) 
+Raw Sensor Data 
+Final Feature Vector 
+Sliding Windowing 
+(5 s, 50% Overlap) 
+GRU Layer 2 
+(64 units) 
+GRU Layer 1 
+(64 units) 
+LSTM Layer 2 
+(64 units) 
+LSTM Layer 1 
+(64 units) 
+ 
+Dense + Softmax Output 
+ 
+Input Feature Window 
+ 
+ 
+Fig. 4: Real-time in-browser inference and alerting pipeline 
+(IEEE-compliant grayscale diagram). 
+ 
+G. Personalized Scheduling Assistant 
+The scheduling assistant will offer: 
+• Distinct reminders (hydration, breaks, medication), 
+• Adaptive instructions according to the physiological pat- 
+terns, 
+• Behaviour–inspired updates based on the guidelines of 
+digital health studies [10], [11]. 
+H. Privacy-Preserving Architecture 
+The sensor acquisition, pre-processing, inference, and visu- 
+alization is done locally in the browser environment. None of 
+the data move out of the device of user. The sandbox ing of 
+WebAssembly and the dealing with BLE permissions are other 
+added safety features of WebAI [7]. 
+I. Summary 
+The diagrams  1–4 depict the entire privacy -sensitive 
+browser pipeline of real -time smartwatch-based anomaly de - 
+tection and scheduling. 
+V. RESULTS AND DISCUSSION 
+This part assesses the functionality of the proposed real-time 
+anomaly detector and health monitoring system on a personal 
+computer (PC) as a Web -based web application. All the 
+computations, such as the preprocessing and feature extraction 
+and model inference, were performed locally within the web 
+browser with WebAssembly-optimized ONNX inference. The 
+test was done on a standard desktop computer with Intel Core 
+i5 processor and 8 GB RAM which is a typical end -user 
+hardware. 
+A. Anomaly Detection Performance 
+The hybrid LSTM–GRU model proved to be highly strong 
+in terms of its temporal modeling both on the benchmark 
+and real world data. The model recorded an accuracy of 
+95.8%, F1-score of 0.94, and AUC–ROC of 0.97 on the 
+WESAD dataset. In the real world data of Galaxy Watch4, 
+the model achieved an accuracy of 93.4% with the F 1 -score 
+of 0.91. Such results align with previous literature studies 
+indicating that recurrent neural networks, especially LSTM 
+and GRU models, are useful at learning physiological time- 
+series dynamics to detect anomalies in wearables [1], [2], [4]. 
+The system also uses the adaptive thresholding to customize 
+the conditions of the anomaly boundaries according to user- 
+specific trends to enhance practical performance. Adaptive 
+thresholds classified fewer false positives by 18.6% and false 
+negatives by 12.1%, compared to a universal threshold, which 
+is consistent with the fact that individualized modeling can 
+detect physiological anomalies better than universal modeling 
+can [4]. 
+B. Robustness to Motion Artifacts 
+PPG and accelerator streams are also wearable and therefore 
+are extremely sensitive to motion artifacts. In the high -motion 
+case, accuracy in detecting anomalies was negatively impacted 
+by close to 9% when no correction was done. In response 
+to this, the system uses bandpass filtering, normalization, and 
+accelerated-assisted artifact suppression-methodologies, which 
+are consistent with signal-processing approaches suggested 
+in the existing literature [3], [6]. Following the application 
+of artifact mitigation, the system obtained an accuracy of 
+94.1% on the segmentation of motion -intensive ones, which 
+proves that the preprocessing pipeline effectively conserves 
+physiological data, as well as eliminates noise. 
+C. Real-Time Inference on a Web Application 
+One of the key objectives of this work is the possibility 
+to learn in real time and make inferences directly into the 
+browser, without cloud dependency. The hybrid LSTMGRU 
+model has a size of about 1.02 million parameters, which 
+is client-side WebAssembly executable. ONNX Runtime Web 
+inferred at average latency: 
+• 28 ms to infer the model in 5 seconds window, 
+• 1.6 seconds average response time and preprocessing and 
+dashboard update. 
+Such findings have been supported in WebAssembly-based 
+deep learning studies where browser -side inference can reach 
+native performance levels of deep learning models that are na- 
+tively executed on the CPU side of the magic mirror model [7]. 
+The architecture has provided maximum user privacy as no 
+physiological information are exited out of the user device. 
+D. Health Monitoring and Scheduling Assistant Evaluation 
+he system also offers behavioral scheduling assistant that 
+is inbuilt in the dashboard. Its effectiveness was tested in 10  
+participants in a 7-day usability study. Participants rated: 
+• Health-trend summaries at 4.6/5 to be clear and useful, 
+• Daily reminders (hydration, movement, medication) as a 
+useful or highly useful in 82% of responses, 
+• Routine compliance increased by 23.4% because of adap- 
+tive recommendations. 
+Adaptive Thresholding 
+Anomaly Score 
+ONNX Runtime 
+(WebAssembly) 
+Feature Vector 
+Dashboard Update 
+& Alerts 
+Such observations indicate the advantages of a combination 
+of rule-based and individualized behavioral interventions that 
+have been presented in the context of digital health research 
+before [10], [11]. 
+E. Consolidated Results Summary 
+In this section, we summarize the results obtained from all 
+the subsections above, and present a summary of these findings 
+in the table below that follows. 
+TABLE I: Performance Summary of Smartwatch-to-Web An- 
+alytics Framework. 
+ 
+Metric WESAD Smartwatch 
+Data 
+Accuracy (%) 95.8 93.4 
+F1-score 0.94 0.91 
+AUC-ROC 0.97 0.94 
+Inference latency (ms) 28–35 28–35 
+End-to-end delay (s) 1.4–1.8 1.4–1.8 
+Motion robustness (%) 92–95 89–93 
+Battery drain (%/hr) N/A 5–8 (BLE stream- 
+  ing) 
+ PC CPU usage (%) N/A 10–18  
+ 
+F. Discussion 
+The experiment has validated the fact that the suggested 
+system is efficient in the real-time, non-invasive physiological 
+anomaly detection with consumer -level smartwatches. The 
+hybrid LSTMGRU model offers excellent time modeling capa- 
+bilities, whereas the motion-artifact mitigation model stabilizes 
+the performance in real-life conditions. Notably, the web-based 
+implementation provides uncomplicated accessibility without 
+installations, user privacy and in-built behavioral support. Con- 
+sequently, the system shifts to more advanced digital health 
+companion rather than the standardized anomaly detection. 
+VI. CONCLUSION AND FUTURE WORK 
+This study introduces a workable, AI-based design of real- 
+time detection of physiological abnormalities based on the 
+continuous sensor data of consumer wearable gadgets like 
+the Samsung Galaxy Watch4. The hybrid LSTM–GRU model 
+suggested successfully recognizes the false deviations to indi- 
+vidual baseline patterns of multimodal biometric streams, such 
+as heart rate, SpO2 and motion signals, with high sensitivity 
+and low latency. Experimental testing ascertains the possibility 
+of the system to reach both 93-95% uncovering accuracy 
+and sub-2-second total processing lag end-to-end, which is 
+adequate to apply in real world preventive medical procedures. 
+The major advantage of this system is its privacy-preserving 
+design: all preprocessing, feature extraction and inference 
+functions are directly performed in the local browser alongside 
+WebAssembly and ONNX Runtime Web. This means that 
+the sensitive physiological data can never move out of the 
+device, which provides great secureness to privacy threats that 
+generally come with cloud reliance. 
+The findings show that there is a possibility of turning 
+consumer wearables into proactive digital health helpers who 
+can sense anomalies early and monitor continuously and pro - 
+vide customized behavioral guidance. Other than identification 
+of anomalies, the system architecture can be expanded to  
+areas like stress and fatigue predictions, and ongoing health 
+management. 
+Future Work: Several research directions can further en - 
+hance this system: 
+• nclusion of other biosignals including ECG, skin tem - 
+perature and galvanic skin response to provide a mor e 
+physiological context. 
+• Federalization and transfer learning to the development of 
+users without centralization of data Federated and transfer 
+learning to enhance personalization without centralization 
+of user data. 
+• The ability to include context -aware ad aptive feedback, 
+which allows automatic recommendations or clinical 
+warnings of detected anomalies. 
+• On-device inference Optimization to ultra-low-power em- 
+bedded execution so that it can be deployed directly on 
+wearables or independent devices into the IoT. 
+To conclude, this paper provides the basis of smart, safe, 
+and real -time physiological analytics on consumer -century 
+wearables, the area between raw sensor measurements and 
+actionable health metrics. 
+REFERENCES 
+[1] R. S. Hossain, A. Rahman, and M. A. Hoss ain, “Real -Time Anomaly  
+Detection in Wearable Health Monitoring Systems,” IEEE Sensors  
+Journal, vol. 22, no. 9, pp. 9324 –9335, 2022. 
+[2] P. H. Charlton, O. Hametner, and S. Pimentel, “Deep Learning for  
+Wearable-Based Health Monitoring: A Review,” IEEE J. Biomed. Health 
+Inform., vol. 27, no. 3, pp. 1200 –1215, 2023. 
+[3] O. Faust et al., “Deep Learning for Photoplethysmography and Phys - 
+iological Signal Analysis: A Review,” IEEE Access, vol. 9, pp.  77645–
+77665, 2021. 
+[4] L. Zhang, W. Xu, and H. Li, “Wearable Stress Monitoring Using HRV  
+and Deep Neural Networks,” IEEE Sensors Letters, vol. 7, no. 5, pp.  1–
+4, 2023. 
+[5] H. Guo, P. K. Jim, L. Chen, “Transformers for Multimodal Physio - 
+logical Monitoring in Wearable Systems,” IEEE Access, vol. 12, pp.  
+10450–10465, 2024. 
+[6] B. V. Krishna and S. Tamura, “Motion Artifact Reduction Techniques  
+in Wearable PPG Sensors,” IEEE Sensors Journal, vol. 22, no. 4, pp.  
+3850–3864, 2022. 
+[7] T. Luo, M. Kim, and J. Wu, “Web -Based Deep Learning Inference  
+Using WebAssembly and ONNX Runtime Web,” Proc. ACM Web Conf. 
+(WWW), pp. 1250–1261, 2023. 
+[8] M. Feng et al., “Edge AI for Real -Time Health Monitoring on Wear - 
+able Devices,” IEEE Internet of Things Journal, vol. 10, no. 15, pp.  
+13210–13222, 2023. 
+[9] A. Singh, K. Raza, and M. A. Khan, “Evaluating Bluetooth Low Energy 
+Streaming for Wearable Health Devices,” IEEE Internet of Things  
+Journal, vol. 8, no. 14, pp. 11325 –11336, 2021. 
+[10]  N. Peiris, S. Arunan, and M. Billinghurst, “AI -Augmented Behavior  
+Change and Digital Health Interventions,” IEEE Pervasive Computing,  
+vol. 20, no. 4, pp. 45–53, 2021. 
+[11]  Z. Zhao, Q. Cheng, and X. Zhang, “Context -Aware Personalized Health  
+Recommendations Using Wearable Sensors,” IEEE Trans. Affective  
+Computing, vol. 13, no. 4, pp. 1890 –1903, 2022. 
+[12]  P. Schmidt et al., “Introducing WESAD: A Multi modal Dataset for  
+Wearable Stress and Affect Detection,” Proc. ACII, pp. 400 –408, 2018. 
+[13]  Gabrielli, D., Prenkaj, B., Velardi, P. & Faralli, S. (2025). AI on the 
+Pulse: Real -Time Health Anomaly Detection with Wearable and 
+Ambient Intelligence 
+[14]  Raje, V. V., Go el, S., Patil, S. V., Kokate, M. D., & Lavate, S. (2024). 
+Real-time Anomaly Detection in Healthcare IoT: A Machine Learning -
+Driven Security Framework. Journal of Electrical Systems, Vol. (2024).  
+[15]  Vo, D.–K. & Trinh, K. T. L. (2024). Advances in Wearable Bios ensors 
+for Healthcare: Current Trends, Applications, and Future Perspectives . 
+Biosensors, 14(11), 560. 
+ 

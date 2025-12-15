@@ -1,0 +1,206 @@
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+} from 'chart.js';
+import type { ChartData, ChartOptions, TooltipItem } from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    Filler
+);
+import annotationPlugin from 'chartjs-plugin-annotation';
+import zoomPlugin from 'chartjs-plugin-zoom';
+
+ChartJS.register(annotationPlugin, zoomPlugin);
+
+import { ExportMenu } from './ExportMenu';
+
+interface RealTimeChartProps {
+    data: number[];
+    labels: string[];
+    label: string;
+    color: string;
+    min?: number;
+    max?: number;
+    normalMin?: number;
+    normalMax?: number;
+    unit?: string;
+    id?: string;
+}
+
+export function RealTimeChart({ data, labels, label, color, min, max, normalMin, normalMax, unit = '', id }: RealTimeChartProps) {
+    // Detect mobile device for responsive options
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    // Generate a default ID if none provided, using a simple random string or label-based ID
+    const chartId = id || `chart-${label.replace(/\s+/g, '-').toLowerCase()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    const options: ChartOptions<'line'> = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 0 },
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                ticks: { display: false }
+            },
+            y: {
+                min,
+                max,
+                grid: {
+                    color: '#2C2C2E',
+                    lineWidth: 1,
+                    tickLength: 0
+                },
+                border: { display: false },
+                ticks: {
+                    color: '#9ca3af',
+                    font: {
+                        size: isMobile ? 9 : 12, // Increased from 10 to 12 for desktop
+                        family: 'Inter',
+                        weight: 'bold' // Changed from "500" to "bold" to fix type error
+                    },
+                    padding: isMobile ? 4 : 10, // Increased padding
+                    maxTicksLimit: isMobile ? 5 : 8
+                }
+            },
+        },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                enabled: true,
+                mode: 'index',
+                intersect: false,
+                backgroundColor: 'rgba(28, 28, 30, 0.95)',
+                titleColor: '#F2F2F7',
+                bodyColor: '#98989D',
+                borderColor: '#00C7BE',
+                borderWidth: 2,
+                padding: isMobile ? 10 : 14, // Increased padding
+                cornerRadius: 12,
+                displayColors: false,
+                titleFont: {
+                    size: isMobile ? 12 : 14, // Increased from 13 to 14
+                    weight: 'bold',
+                    family: 'Inter'
+                },
+                bodyFont: {
+                    size: isMobile ? 11 : 13, // Increased from 12 to 13
+                    family: 'Inter'
+                },
+                callbacks: {
+                    title: (tooltipItems: TooltipItem<'line'>[]) => {
+                        const index = tooltipItems[0].dataIndex;
+                        const timeAgo = labels.length - index - 1;
+
+                        if (timeAgo === 0) return '📍 Now';
+                        if (timeAgo === 1) return '⏱️ 1 minute ago';
+                        if (timeAgo < 60) return `⏱️ ${timeAgo} minutes ago`;
+
+                        const hoursAgo = Math.floor(timeAgo / 60);
+                        if (hoursAgo === 1) return '⏱️ 1 hour ago';
+                        return `⏱️ ${hoursAgo} hours ago`;
+                    },
+                    afterLabel: (_: TooltipItem<'line'>) => {
+                        if (normalMin && normalMax) {
+                            return `Normal: ${normalMin}-${normalMax}${unit}`;
+                        }
+                        return '';
+                    }
+                }
+            },
+            zoom: {
+                pan: {
+                    enabled: true,
+                    mode: 'x',
+                    modifierKey: isMobile ? undefined : 'ctrl'
+                },
+                zoom: {
+                    wheel: { enabled: !isMobile },
+                    pinch: { enabled: true },
+                    mode: 'x',
+                }
+            },
+            annotation: {
+                annotations: (normalMin !== undefined && normalMax !== undefined) ? {
+                    normalRange: {
+                        type: 'box',
+                        yMin: normalMin,
+                        yMax: normalMax,
+                        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                        borderWidth: 0,
+                        label: {
+                            content: 'Normal',
+                            display: !isMobile,
+                            position: 'start',
+                            color: 'rgba(16, 185, 129, 0.5)',
+                            font: { size: 9 },
+                            yAdjust: -10
+                        }
+                    }
+                } : {}
+            }
+        },
+        elements: {
+            point: {
+                radius: 0,
+                hitRadius: isMobile ? 30 : 20
+            },
+            line: {
+                tension: 0.4,
+                borderWidth: isMobile ? 1.5 : 2
+            }
+        }
+    };
+
+    const chartData: ChartData<'line'> = {
+        labels,
+        datasets: [
+            {
+                label,
+                data,
+                borderColor: color,
+                backgroundColor: (context) => {
+                    const ctx = context.chart.ctx;
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                    gradient.addColorStop(0, color + '20'); // 12% opacity
+                    gradient.addColorStop(1, color + '00'); // 0% opacity
+                    return gradient;
+                },
+                fill: true,
+            },
+        ],
+    };
+
+    return (
+        <div className="w-full h-full relative group">
+            <div className="absolute top-0 right-0 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <ExportMenu
+                    chartId={chartId}
+                    chartTitle={label}
+                    data={data.map((d, i) => ({ time: labels[i], value: d }))}
+                    headers={['Time', label]}
+                />
+            </div>
+            <Line id={chartId} options={options} data={chartData} />
+        </div>
+    );
+}
+
