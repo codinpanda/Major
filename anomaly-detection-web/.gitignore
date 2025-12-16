@@ -27,3 +27,16 @@ dist-ssr
 .vercel
 .env
 .env*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Data & Models
+*.pkl
+*.h5
+*.pth
+# Keep onnx models if they are small, but ignore if huge. Assuming kept for now as it is web app asset.

@@ -1,9 +1,14 @@
+import wesadData from './wesad_sample.json';
+
 export interface HealthDataPacket {
     timestamp: number;
     heartRate: number;
     hrv: number;
     stress: number;
     accelerometer: { x: number; y: number; z: number };
+    // Raw signals for ONNX model
+    rawECG?: number[];
+    rawEDA?: number[];
 }
 
 type Listener = (data: HealthDataPacket) => void;
@@ -13,6 +18,10 @@ class DataGenerator {
     private intervalId: number | null = null;
     public mode: 'NORMAL' | 'ANOMALY' | 'RANDOM' = 'NORMAL';
     private anomalyDuration = 0;
+
+    // WESAD Playback Indices
+    private baselineIdx = 0;
+    private stressIdx = 0;
 
     start() {
         if (this.intervalId) return;
@@ -45,9 +54,10 @@ class DataGenerator {
         const now = Date.now();
         let packet: HealthDataPacket;
         let isAnomalyStr = false;
+        let rawSequence: any[] = [];
 
+        // Determine Mode
         if (this.mode === 'RANDOM') {
-            // 10% chance to start anomaly if not active
             if (this.anomalyDuration === 0 && Math.random() < 0.1) {
                 this.anomalyDuration = 5 + Math.floor(Math.random() * 5);
             }
@@ -59,36 +69,50 @@ class DataGenerator {
             isAnomalyStr = true;
         }
 
+        // Get Real WESAD Sequence
+        // wesadData structure: { baseline: [[ecg, eda]...], stress: [...] }
         if (!isAnomalyStr) {
-            // Normal
+            // Normal (Baseline)
+            const data = wesadData.baseline || [];
+            if (data.length > 0) {
+                rawSequence = data[this.baselineIdx % data.length] as any[];
+                this.baselineIdx++;
+            }
+
             packet = {
                 timestamp: now,
-                heartRate: 60 + Math.random() * 25,
-                hrv: 45 + Math.random() * 25,
-                stress: 15 + Math.random() * 15,
-                accelerometer: {
-                    x: (Math.random() - 0.5) * 0.05,
-                    y: (Math.random() - 0.5) * 0.05,
-                    z: 9.8
-                }
+                heartRate: 60 + Math.random() * 20, // Simulated Display HR
+                hrv: 50 + Math.random() * 15,
+                stress: 20 + Math.random() * 10,
+                accelerometer: { x: 0, y: 0, z: 9.8 }
             };
         } else {
-            // Critical
+            // Critical (Stress)
+            const data = wesadData.stress || [];
+            if (data.length > 0) {
+                rawSequence = data[this.stressIdx % data.length] as any[];
+                this.stressIdx++;
+            }
+
             packet = {
                 timestamp: now,
-                heartRate: 130 + Math.random() * 30,
+                heartRate: 110 + Math.random() * 30, // Simulated Display HR
                 hrv: 15 + Math.random() * 10,
-                stress: 85 + Math.random() * 15,
-                accelerometer: {
-                    x: (Math.random() - 0.5) * 1.5,
-                    y: (Math.random() - 0.5) * 1.5,
-                    z: 9.8
-                }
+                stress: 90 + Math.random() * 10,
+                accelerometer: { x: 0.1, y: 0.1, z: 9.8 }
             };
+        }
+
+        // Attach Raw Data for Model
+        // Data format from python: [ [ecg, eda], [ecg, eda], ... ]
+        if (rawSequence.length > 0) {
+            packet.rawECG = rawSequence.map((d: any) => d[0]); // Column 0 is ECG
+            packet.rawEDA = rawSequence.map((d: any) => d[1]); // Column 1 is EDA
         }
 
         this.listeners.forEach(l => l(packet));
     }
+
 }
 
 export const dataGenerator = new DataGenerator();

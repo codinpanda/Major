@@ -1,92 +1,69 @@
+import * as ort from 'onnxruntime-web';
 import type { HealthDataPacket } from '../simulation/DataGenerator';
 
 export class InferenceEngine {
-    private isCalibrating = true;
-    private calibrationBuffer: HealthDataPacket[] = [];
-    private readonly CALIBRATION_SIZE = 30; // 30 samples (~30 seconds)
+    private session: ort.InferenceSession | null = null;
+    private isLoading = true;
 
-    // Baseline statistics
-    private stats = {
-        hrMean: 0,
-        hrStdDev: 0,
-        hrvMean: 0,
-        hrvStdDev: 0
-    };
+    constructor() {
+        this.init();
+    }
+
+    async init() {
+        try {
+            // Load the ONNX model from the public directory
+            this.session = await ort.InferenceSession.create('./model/hybrid_model.onnx', {
+                executionProviders: ['wasm'],
+            });
+            this.isLoading = false;
+            console.log('ONNX Model loaded successfully');
+        } catch (e) {
+            console.error('Failed to load ONNX model:', e);
+        }
+    }
 
     public getStatus() {
         return {
-            isCalibrating: this.isCalibrating,
-            samplesCollected: this.calibrationBuffer.length,
-            samplesNeeded: this.CALIBRATION_SIZE
+            isCalibrating: this.isLoading, // Re-using this flag for UI compatibility
+            samplesCollected: 0,
+            samplesNeeded: 0
         };
     }
 
     async predict(packet: HealthDataPacket): Promise<{ probability: number; zScore: number; isAnomaly: boolean }> {
-        if (this.isCalibrating) {
-            this.calibrationBuffer.push(packet);
-
-            if (this.calibrationBuffer.length >= this.CALIBRATION_SIZE) {
-                this.calculateBaseline();
-                this.isCalibrating = false;
-            }
+        if (this.isLoading || !this.session || !packet.rawECG || !packet.rawEDA) {
             return { probability: 0, zScore: 0, isAnomaly: false };
         }
 
-        // Calculate Z-Scores
-        // Z = (Value - Mean) / StdDev
-        const zHR = Math.abs((packet.heartRate - this.stats.hrMean) / (this.stats.hrStdDev || 1));
-        const zHRV = Math.abs((packet.hrv - this.stats.hrvMean) / (this.stats.hrvStdDev || 1));
+        try {
+            // Prepare Input Tensor [1, 60, 2]
+            // Interleave ECG and EDA: [ecg0, eda0, ecg1, eda1, ...]
+            const inputData = new Float32Array(packet.rawECG.length * 2);
+            for (let i = 0; i < packet.rawECG.length; i++) {
+                inputData[i * 2] = packet.rawECG[i];
+                inputData[i * 2 + 1] = packet.rawEDA[i];
+            }
 
-        // Combined Anomaly Score (Weighted)
-        // HR deviation is critical, HRV deviation is warning
-        const weightedScore = (zHR * 0.7) + (zHRV * 0.3);
+            const tensor = new ort.Tensor('float32', inputData, [1, packet.rawECG.length, 2]);
 
-        // Map Z-Score to Probability (Sigmoid-ish mostly for 0-1 range)
-        // Z=2 -> ~95% confidence (2 sigma)
-        // Z=3 -> ~99.7% confidence
-        // Normalizing: Value < 1.5 -> 0%, Value > 3.5 -> 100%
-        const probability = Math.min(1, Math.max(0, (weightedScore - 1.5) / 2));
+            // Run Inference
+            const feeds = { input: tensor }; // 'input' matches export name
+            const results = await this.session.run(feeds);
+            const output = results.output.data[0] as number; // 'output' matches export name
 
-        // Dynamic Update (Running Average) - "Learning" over time
-        // Alpha = 0.05 means new data affects baseline by 5%
-        this.updateStats(packet);
+            // Output is Sigmoid probability (0-1)
+            const probability = output;
+            const isAnomaly = probability > 0.5;
 
-        return {
-            probability,
-            zScore: weightedScore,
-            isAnomaly: weightedScore > 2.5 // Threshold: 2.5 Sigma
-        };
-    }
-
-    private calculateBaseline() {
-        const hrs = this.calibrationBuffer.map(p => p.heartRate);
-        const hrvs = this.calibrationBuffer.map(p => p.hrv);
-
-        this.stats = {
-            hrMean: this.mean(hrs),
-            hrStdDev: this.stdDev(hrs),
-            hrvMean: this.mean(hrvs),
-            hrvStdDev: this.stdDev(hrvs)
-        };
-        console.log("Model Calibrated:", this.stats);
-    }
-
-    private updateStats(packet: HealthDataPacket) {
-        // Simple Exponential Moving Average for drift adaptation
-        const alpha = 0.01; // Slow adaptation
-        this.stats.hrMean = (1 - alpha) * this.stats.hrMean + alpha * packet.heartRate;
-        this.stats.hrvMean = (1 - alpha) * this.stats.hrvMean + alpha * packet.hrv;
-        // StdDev update simplified for performance, usually kept static or re-calibrated
-    }
-
-    private mean(data: number[]) {
-        return data.reduce((a, b) => a + b, 0) / data.length;
-    }
-
-    private stdDev(data: number[]) {
-        const m = this.mean(data);
-        const variance = data.reduce((sum, val) => sum + Math.pow(val - m, 2), 0) / data.length;
-        return Math.sqrt(variance);
+            return {
+                probability,
+                zScore: probability * 3, // Mock Z-score for UI consistency
+                isAnomaly
+            };
+        } catch (e) {
+            console.error('Inference failed:', e);
+            return { probability: 0, zScore: 0, isAnomaly: false };
+        }
     }
 }
 
