@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wind, Heart, Phone, Activity, Sparkles, Utensils, Clock, Droplets, Pill, Dumbbell } from 'lucide-react';
+import { Wind, Heart, Phone, Activity, Sparkles, Utensils, Clock, Droplets, Pill } from 'lucide-react';
 import { BreathingExercise } from '../components/BreathingExercise';
 import { LogModal } from '../components/LogModal';
 import { useUser } from '../contexts/UserContext';

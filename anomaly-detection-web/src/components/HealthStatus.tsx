@@ -1,4 +1,3 @@
-import { Activity, AlertCircle, CheckCircle2 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
 import type { HealthDataPacket } from '../simulation/DataGenerator';
