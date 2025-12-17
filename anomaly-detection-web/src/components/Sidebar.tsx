@@ -1,4 +1,4 @@
-import { Activity, Shield, History, Settings, Home, LogOut } from 'lucide-react';
+import { Activity, Shield, History, Settings, Home, LogOut, Moon, Calendar } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -8,6 +8,8 @@ export function Sidebar() {
         { to: "/vitals", icon: Activity, label: "Vitals" },
         { to: "/guidance", icon: Shield, label: "Guidance" },
         { to: "/history", icon: History, label: "History" },
+        { to: "/calendar", icon: Calendar, label: "Calendar" },
+        { to: "/sleep", icon: Moon, label: "Sleep" },
         { to: "/settings", icon: Settings, label: "Settings" },
     ];
 

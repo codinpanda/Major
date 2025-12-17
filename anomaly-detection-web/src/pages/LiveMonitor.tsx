@@ -21,12 +21,17 @@ export function LiveMonitor() {
     const [isSimulating, setIsSimulating] = useState(false);
 
     useEffect(() => {
-        // inferenceEngine.init(); // No longer async/needed for z-score
+        // Init happens in constructor, but we'll monitor status
         const unsubscribe = dataGenerator.subscribe(async (packet) => {
             setLatest(packet);
-            const result = await inferenceEngine.predict(packet);
-            setPrediction(result.probability);
-            setZScore(result.zScore);
+
+            // Only predict if data is available (Live or Sim)
+            if (packet.rawECG && packet.rawECG.length > 0) {
+                const result = await inferenceEngine.predict(packet);
+                setPrediction(result.probability);
+                setZScore(result.zScore);
+            }
+
             setIsCalibrating(inferenceEngine.getStatus().isCalibrating);
 
             setDataHistory(prev => {
@@ -38,7 +43,7 @@ export function LiveMonitor() {
         return () => { unsubscribe(); };
     }, []);
 
-    const startSim = (mode: 'NORMAL' | 'ANOMALY' | 'RANDOM') => {
+    const startSim = (mode: 'NORMAL' | 'ANOMALY' | 'RANDOM' | 'EXTERNAL_DEVICE') => {
         dataGenerator.setMode(mode);
         dataGenerator.start();
         setIsSimulating(true);
@@ -49,7 +54,11 @@ export function LiveMonitor() {
         setIsSimulating(false);
     };
 
-    const labels = dataHistory.map(d => new Date(d.timestamp).toLocaleTimeString());
+    // Generate friendly relative time labels (e.g., "60s ago", "Now")
+    const labels = dataHistory.map((_, i) => {
+        const secondsAgo = dataHistory.length - 1 - i;
+        return secondsAgo === 0 ? 'Now' : `${secondsAgo}s ago`;
+    });
     const hrData = dataHistory.map(d => d.heartRate);
 
     // Get current time greeting
@@ -104,6 +113,12 @@ export function LiveMonitor() {
                                 Monitoring Active
                             </div>
                             <div className="h-6 w-px bg-white/10 mx-1" />
+                            <button
+                                onClick={() => startSim('EXTERNAL_DEVICE')}
+                                className="text-sm font-medium px-4 py-2 hover:bg-white/5 text-secondary hover:text-accent hover:bg-accent/10 rounded-full transition-colors"
+                            >
+                                Connect Device
+                            </button>
                             <button
                                 onClick={() => startSim('ANOMALY')}
                                 className="text-sm font-medium px-4 py-2 hover:bg-white/5 text-secondary hover:text-danger hover:bg-danger/10 rounded-full transition-colors"

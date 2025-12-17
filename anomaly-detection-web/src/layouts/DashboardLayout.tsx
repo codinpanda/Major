@@ -1,11 +1,12 @@
-import { Activity, Shield, History, Settings, Home } from 'lucide-react';
-import { Sun, Moon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Activity, Shield, History, Settings, Home, Sun, Moon, Calendar } from 'lucide-react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { ChatAssistant } from '../components/ChatAssistant';
 import { useTheme } from '../contexts/ThemeContext';
 import { Sidebar } from '../components/Sidebar';
 import { useUser } from '../contexts/UserContext';
+import { dataGenerator } from '../simulation/DataGenerator';
 
 function NavItem({ to, icon: Icon, label }: { to: string, icon: React.ElementType, label: string }) {
     const location = useLocation();
@@ -31,6 +32,23 @@ function NavItem({ to, icon: Icon, label }: { to: string, icon: React.ElementTyp
 export function DashboardLayout() {
     const { theme, toggleTheme } = useTheme();
     const { user } = useUser();
+    const [isSynced, setIsSynced] = useState(false);
+
+    useEffect(() => {
+        let timeout: number;
+
+        const unsubscribe = dataGenerator.subscribe(() => {
+            setIsSynced(true);
+            clearTimeout(timeout);
+            // If no data for 3s, consider disconnected
+            timeout = window.setTimeout(() => setIsSynced(false), 3000);
+        });
+
+        return () => {
+            unsubscribe();
+            clearTimeout(timeout);
+        };
+    }, []);
 
     return (
         <div className="flex flex-col lg:flex-row h-screen bg-background text-primary font-sans overflow-hidden">
@@ -50,7 +68,31 @@ export function DashboardLayout() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 sm:gap-3 ml-2">
+                    <div className="flex items-center gap-2 sm:gap-4 ml-2">
+                        {/* Device Status */}
+                        <div className="hidden md:flex items-center gap-3 px-3 py-1.5 rounded-full bg-surface border border-white/5 transition-all duration-300">
+                            <div className="flex items-center gap-1.5">
+                                <span className="relative flex size-2">
+                                    <span className={clsx("absolute inline-flex h-full w-full rounded-full opacity-75", isSynced ? "animate-ping bg-emerald-400" : "bg-secondary")}></span>
+                                    <span className={clsx("relative inline-flex rounded-full size-2", isSynced ? "bg-emerald-500" : "bg-secondary/50")}></span>
+                                </span>
+                                <span className="text-xs font-medium text-secondary">
+                                    {isSynced ? "Sync: Live" : "Disconnected"}
+                                </span>
+                            </div>
+
+                            <div className={clsx("flex items-center gap-3 transition-all duration-500 overflow-hidden", isSynced ? "w-auto opacity-100 ml-1" : "w-0 opacity-0")}>
+                                <div className="w-px h-3 bg-white/10" />
+                                <div className="flex items-center gap-1.5">
+                                    <div className="size-4 rounded-[1px] border border-emerald-500/50 bg-emerald-500/20 relative ml-0.5">
+                                        <div className="absolute inset-0 bg-emerald-500 w-[82%]"></div>
+                                        <div className="absolute -right-[3px] top-1 bottom-1 w-[2px] bg-emerald-500/50 rounded-r-[1px]"></div>
+                                    </div>
+                                    <span className="text-xs font-medium text-secondary">82%</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <button
                             onClick={toggleTheme}
                             className="size-10 sm:size-11 md:size-12 rounded-full bg-surface border border-white/5 flex items-center justify-center text-secondary hover:text-primary transition-colors tap-target"
@@ -79,6 +121,8 @@ export function DashboardLayout() {
                     <NavItem to="/" icon={Home} label="Home" />
                     <NavItem to="/vitals" icon={Activity} label="Vitals" />
                     <NavItem to="/guidance" icon={Shield} label="Guide" />
+                    <NavItem to="/calendar" icon={Calendar} label="Calendar" />
+                    <NavItem to="/sleep" icon={Moon} label="Sleep" />
                     <NavItem to="/history" icon={History} label="History" />
                     <NavItem to="/settings" icon={Settings} label="Profile" />
                 </nav>

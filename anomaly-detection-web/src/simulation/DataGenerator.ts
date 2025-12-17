@@ -1,4 +1,5 @@
 import wesadData from './wesad_sample.json';
+import { WebSocketClient } from './WebSocketClient';
 
 export interface HealthDataPacket {
     timestamp: number;
@@ -16,12 +17,24 @@ type Listener = (data: HealthDataPacket) => void;
 class DataGenerator {
     private listeners: Listener[] = [];
     private intervalId: number | null = null;
-    public mode: 'NORMAL' | 'ANOMALY' | 'RANDOM' = 'NORMAL';
+    public mode: 'NORMAL' | 'ANOMALY' | 'RANDOM' | 'EXTERNAL_DEVICE' = 'NORMAL';
     private anomalyDuration = 0;
 
+    // External Data Source
+    private wsClient: WebSocketClient;
+
+    // WESAD Playback Indices
     // WESAD Playback Indices
     private baselineIdx = 0;
     private stressIdx = 0;
+
+    constructor() {
+        this.wsClient = new WebSocketClient('ws://localhost:8080', (data) => {
+            if (this.mode === 'EXTERNAL_DEVICE') {
+                this.emitExternal(data);
+            }
+        });
+    }
 
     start() {
         if (this.intervalId) return;
@@ -38,9 +51,15 @@ class DataGenerator {
         }
     }
 
-    setMode(mode: 'NORMAL' | 'ANOMALY' | 'RANDOM') {
+    setMode(mode: 'NORMAL' | 'ANOMALY' | 'RANDOM' | 'EXTERNAL_DEVICE') {
         this.mode = mode;
         this.anomalyDuration = 0; // Reset any active random anomaly
+
+        if (mode === 'EXTERNAL_DEVICE') {
+            this.wsClient.connect();
+        } else {
+            this.wsClient.disconnect();
+        }
     }
 
     subscribe(listener: Listener) {
@@ -113,6 +132,25 @@ class DataGenerator {
         this.listeners.forEach(l => l(packet));
     }
 
+    private emitExternal(data: any) {
+        // Map external JSON (from phone bridge) to internal HealthDataPacket
+        const packet: HealthDataPacket = {
+            timestamp: data.timestamp || Date.now(),
+            heartRate: data.heartRate || 0,
+            hrv: data.hrv || 0,
+            stress: 0, // Calculated by Inference Engine or not available
+            accelerometer: {
+                x: data.accX || 0,
+                y: data.accY || 0,
+                z: data.accZ || 0
+            },
+            // Pass raw signals if available, otherwise InferenceEngine might skip prediction
+            rawECG: data.rawECG,
+            rawEDA: data.rawEDA
+        };
+
+        this.listeners.forEach(l => l(packet));
+    }
 }
 
 export const dataGenerator = new DataGenerator();

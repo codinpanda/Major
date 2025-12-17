@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Wind, Heart, Phone, Activity, Sparkles, Utensils } from 'lucide-react';
+import { Wind, Heart, Phone, Activity, Sparkles, Utensils, Clock, Droplets, Pill, Dumbbell } from 'lucide-react';
 import { BreathingExercise } from '../components/BreathingExercise';
 import { LogModal } from '../components/LogModal';
 import { useUser } from '../contexts/UserContext';
@@ -207,6 +207,55 @@ export function Guidance() {
                 </div>
 
                 <div className="space-y-6">
+                    {/* Smart Schedule (Flagship Phase 3) */}
+                    <motion.div variants={item} className="card-base p-6 bg-surface shadow-md">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="size-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                                <Clock size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-primary">Smart Schedule</h3>
+                                <p className="text-xs text-secondary">AI-optimized reminders</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Hydration */}
+                            <div className="flex items-center justify-between p-4 rounded-2xl bg-background border border-white/5">
+                                <div className="flex items-center gap-4">
+                                    <div className="size-10 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                                        <Droplets size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-primary">Hydration Stats</h4>
+                                        <p className="text-xs text-secondary">Next sip in 15 mins</p>
+                                    </div>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" defaultChecked className="sr-only peer" />
+                                    <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                                </label>
+                            </div>
+
+                            {/* Medication */}
+                            <div className="flex items-center justify-between p-4 rounded-2xl bg-background border border-white/5">
+                                <div className="flex items-center gap-4">
+                                    <div className="size-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                                        <Pill size={20} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-primary">Medication</h4>
+                                        <p className="text-xs text-secondary">Evening dose: 8:00 PM</p>
+                                    </div>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" defaultChecked className="sr-only peer" />
+                                    <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </motion.div>
+
                     {/* Quick Actions */}
                     <motion.div variants={item} className="card-base p-6 bg-surface shadow-md">
                         <h3 className="font-bold text-primary mb-4">Quick Actions</h3>

@@ -66,12 +66,12 @@ export function RealTimeChart({ data, labels, label, color, min, max, normalMin,
                 ticks: {
                     color: '#9ca3af',
                     font: {
-                        size: isMobile ? 9 : 11,
+                        size: isMobile ? 9 : 10,
                         family: 'Inter',
                     },
                     maxRotation: 0,
                     autoSkip: true,
-                    maxTicksLimit: isMobile ? 4 : 8
+                    maxTicksLimit: isMobile ? 3 : 6 // Show fewer labels (e.g. 60s, 40s, 20s, Now)
                 }
             },
             y: {
@@ -87,12 +87,12 @@ export function RealTimeChart({ data, labels, label, color, min, max, normalMin,
                 ticks: {
                     color: '#9ca3af',
                     font: {
-                        size: isMobile ? 9 : 12, // Increased from 10 to 12 for desktop
+                        size: isMobile ? 9 : 11,
                         family: 'Inter',
-                        weight: 'bold' // Changed from "500" to "bold" to fix type error
+                        weight: 'bold'
                     },
-                    padding: isMobile ? 4 : 10, // Increased padding
-                    maxTicksLimit: isMobile ? 5 : 8
+                    padding: isMobile ? 4 : 8,
+                    maxTicksLimit: isMobile ? 5 : 6
                 }
             },
         },
@@ -107,30 +107,22 @@ export function RealTimeChart({ data, labels, label, color, min, max, normalMin,
                 bodyColor: '#98989D',
                 borderColor: '#00C7BE',
                 borderWidth: 2,
-                padding: isMobile ? 10 : 14, // Increased padding
+                padding: isMobile ? 10 : 12,
                 cornerRadius: 12,
                 displayColors: false,
                 titleFont: {
-                    size: isMobile ? 12 : 14, // Increased from 13 to 14
+                    size: isMobile ? 12 : 13,
                     weight: 'bold',
                     family: 'Inter'
                 },
                 bodyFont: {
-                    size: isMobile ? 11 : 13, // Increased from 12 to 13
+                    size: isMobile ? 11 : 12,
                     family: 'Inter'
                 },
                 callbacks: {
                     title: (tooltipItems: TooltipItem<'line'>[]) => {
-                        const index = tooltipItems[0].dataIndex;
-                        const timeAgo = labels.length - index - 1;
-
-                        if (timeAgo === 0) return '📍 Now';
-                        if (timeAgo === 1) return '⏱️ 1 minute ago';
-                        if (timeAgo < 60) return `⏱️ ${timeAgo} minutes ago`;
-
-                        const hoursAgo = Math.floor(timeAgo / 60);
-                        if (hoursAgo === 1) return '⏱️ 1 hour ago';
-                        return `⏱️ ${hoursAgo} hours ago`;
+                        // Use the label directly since it's now friendly ("15s ago")
+                        return tooltipItems[0].label;
                     },
                     afterLabel: (_: TooltipItem<'line'>) => {
                         if (normalMin && normalMax) {

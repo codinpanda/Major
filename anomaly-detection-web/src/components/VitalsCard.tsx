@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface VitalsCardProps {
     title: string;
@@ -6,14 +7,15 @@ interface VitalsCardProps {
     unit: string;
     status?: 'normal' | 'warning' | 'critical';
     icon?: React.ElementType;
+    trend?: 'up' | 'down' | 'stable'; // New Prop
 }
 
-export function VitalsCard({ title, value, unit, status = 'normal', icon: Icon }: VitalsCardProps) {
+export function VitalsCard({ title, value, unit, status = 'normal', icon: Icon, trend = 'stable' }: VitalsCardProps) {
 
     const statusMap = {
-        normal: { text: 'Looks good', color: 'text-success', bg: 'from-success/10 to-transparent border-success/10' },
-        warning: { text: 'Higher than usual', color: 'text-warning', bg: 'from-warning/10 to-transparent border-warning/10' },
-        critical: { text: 'Needs attention', color: 'text-danger', bg: 'from-danger/10 to-transparent border-danger/10' },
+        normal: { text: 'Normal', color: 'text-success', bg: 'from-success/10 to-transparent border-success/10' },
+        warning: { text: 'Elevated', color: 'text-warning', bg: 'from-warning/10 to-transparent border-warning/10' },
+        critical: { text: 'Critical', color: 'text-danger', bg: 'from-danger/10 to-transparent border-danger/10' },
     };
 
     const s = statusMap[status];
@@ -42,17 +44,24 @@ export function VitalsCard({ title, value, unit, status = 'normal', icon: Icon }
 
                 {/* Content - Responsive Typography */}
                 <div className="flex-1 min-w-0">
-                    <div className="text-[10px] sm:text-xs lg:text-base text-secondary font-semibold uppercase tracking-wide mb-1">
-                        {title}
+                    <div className="flex justify-between items-start">
+                        <div className="text-[10px] sm:text-xs lg:text-base text-secondary font-semibold uppercase tracking-wide mb-1">
+                            {title}
+                        </div>
+                        {/* Trend Indicator */}
+                        <div className={clsx("flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-surface/50 border border-white/5", s.color)}>
+                            {trend === 'up' && <TrendingUp size={12} />}
+                            {trend === 'down' && <TrendingDown size={12} />}
+                            {trend === 'stable' && <Minus size={12} />}
+                            <span>{trend === 'up' ? '+2%' : trend === 'down' ? '-2%' : '0%'}</span>
+                        </div>
                     </div>
+
                     <div className="flex items-baseline gap-1.5 sm:gap-2 lg:gap-2.5">
                         <span className="text-3xl sm:text-4xl lg:text-4xl font-bold text-primary tracking-tight">
                             {value}
                         </span>
                         <span className="text-xs sm:text-sm lg:text-sm text-secondary font-medium">{unit}</span>
-                    </div>
-                    <div className={clsx("text-xs sm:text-sm lg:text-base font-medium mt-0.5 sm:mt-1 lg:mt-1.5", s.color)}>
-                        {s.text}
                     </div>
                 </div>
             </div>

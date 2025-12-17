@@ -1,166 +1,235 @@
+import os
+import json
+import pickle
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
-import pickle
-import os
-import onnx
-import onnxruntime
+import torch.onnx
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, precision_recall_curve, average_precision_score
 from torch.utils.data import TensorDataset, DataLoader
 
-# Configuration
-WESAD_PATH = r'C:\Users\priya\Proj\datasets\WESAD\S2\S2.pkl'
-OUTPUT_ONNX = r'C:\Users\priya\Proj\anomaly-detection-web\public\model.onnx'
-OUTPUT_CM = r'C:\Users\priya\Proj\anomaly-detection-web\public\confusion_matrix.png'
-SEQUENCE_LENGTH = 60 # 5 seconds at ~12Hz effective sampling (or just a demo window)
-BATCH_SIZE = 32
-EPOCHS = 10
+# Setup
+sns.set_style("whitegrid")
+np.random.seed(42)
+torch.manual_seed(42)
 
-# 1. Define Hybrid LSTM-GRU Model
-class HybridLSTM_GRU(nn.Module):
-    def __init__(self, input_dim=4, hidden_dim=64, num_classes=2):
-        super(HybridLSTM_GRU, self).__init__()
+# Paths
+CURRENT_DIR = os.getcwd()
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, '..')) 
+DATA_PATH = os.path.join(PROJECT_ROOT, 'datasets', 'WESAD', 'S2', 'S2.pkl')
+MODEL_EXPORT_PATH = os.path.join(PROJECT_ROOT, 'public', 'model', 'hybrid_model.onnx')
+
+# Hyperparameters
+SEQUENCE_LENGTH = 60
+INPUT_DIM = 2 # ECG, EDA
+BATCH_SIZE = 64
+EPOCHS = 50       
+PATIENCE = 7      
+NOISE_FACTOR = 0.05 
+
+print(f"Project Root: {PROJECT_ROOT}")
+
+# --- 1. Data Loading & Preprocessing ---
+if not os.path.exists(DATA_PATH):
+    raise FileNotFoundError(f"Dataset not found at {DATA_PATH}")
+
+print(f"Loading {DATA_PATH}...")
+with open(DATA_PATH, 'rb') as file:
+    data = pickle.load(file, encoding='latin1')
+
+ecg = data['signal']['chest']['ECG'].flatten()
+eda = data['signal']['chest']['EDA'].flatten()
+labels = data['label']
+
+# Normalize (Z-Score)
+ecg = (ecg - np.mean(ecg)) / (np.std(ecg) + 1e-6)
+eda = (eda - np.mean(eda)) / (np.std(eda) + 1e-6)
+
+# Filter & Map Labels (1=Baseline, 2=Stress)
+mask = np.isin(labels, [1, 2])
+ecg = ecg[mask]
+eda = eda[mask]
+y = labels[mask]
+y = np.where(y == 2, 1, 0).astype(np.float32) # Target: 1=Stress
+
+print(f"Total Samples: {len(y)}")
+
+# Calculate Class Weights
+num_neg = len(y[y==0])
+num_pos = len(y[y==1])
+pos_weight = torch.tensor([num_neg / num_pos]) 
+print(f"Class Imbalance: Neg={num_neg}, Pos={num_pos} | Scale POS Weight: {pos_weight.item():.2f}")
+
+def create_sequences(ecg, eda, y, seq_len, step=100):
+    xs, ys = [], []
+    for i in range(0, len(ecg) - seq_len, step):
+        xs.append(np.column_stack((ecg[i:i+seq_len], eda[i:i+seq_len])))
+        ys.append(y[i+seq_len-1])
+    return np.array(xs, dtype=np.float32), np.array(ys, dtype=np.float32)
+
+X, Y = create_sequences(ecg, eda, y, SEQUENCE_LENGTH, step=100)
+
+# Split
+X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.2, random_state=42, stratify=Y)
+
+# --- DATA AUGMENTATION ---
+print(f"Applying Augmentation (Noise Factor: {NOISE_FACTOR})...")
+noise = np.random.normal(0, NOISE_FACTOR, X_train.shape)
+X_train_aug = X_train + noise
+X_train_final = np.vstack((X_train, X_train_aug))
+y_train_final = np.hstack((y_train, y_train))
+
+print(f"Training Samples (Final): {len(X_train_final)}")
+
+train_loader = DataLoader(TensorDataset(torch.from_numpy(X_train_final).float(), torch.from_numpy(y_train_final).float()), 
+                          batch_size=BATCH_SIZE, shuffle=True)
+test_loader = DataLoader(TensorDataset(torch.from_numpy(X_test).float(), torch.from_numpy(y_test).float()), 
+                         batch_size=BATCH_SIZE, shuffle=False)
+
+# --- 2. Updated Model Architecture (Dual-Path Aligned) ---
+class HybridModel(nn.Module):
+    def __init__(self):
+        super(HybridModel, self).__init__()
         
-        # Two LSTM Layers
-        self.lstm1 = nn.LSTM(input_dim, hidden_dim, batch_first=True, dropout=0.3)
-        self.lstm2 = nn.LSTM(hidden_dim, hidden_dim, batch_first=True, dropout=0.3)
+        # LSTM Path (2 Stacked Layers, 64 Units)
+        self.lstm = nn.LSTM(input_size=INPUT_DIM, hidden_size=64, num_layers=2, batch_first=True, dropout=0.3)
         
-        # Two GRU Layers
-        self.gru1 = nn.GRU(hidden_dim, hidden_dim, batch_first=True, dropout=0.3)
-        self.gru2 = nn.GRU(hidden_dim, hidden_dim, batch_first=True, dropout=0.3)
+        # GRU Path (2 Stacked Layers, 64 Units)
+        self.gru = nn.GRU(input_size=INPUT_DIM, hidden_size=64, num_layers=2, batch_first=True, dropout=0.3)
         
-        # Dense Output
-        self.fc = nn.Linear(hidden_dim, num_classes)
-        self.softmax = nn.LogSoftmax(dim=1)
+        # Dual-Path Concatenation -> 64 + 64 = 128
+        self.fc1 = nn.Linear(128, 64)
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, 1)
+        
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
-        # LSTM Layers
-        out, _ = self.lstm1(x)
-        out, _ = self.lstm2(out)
+        # Dual Path Processing
+        lstm_out, _ = self.lstm(x)  # (Batch, Seq, 64)
+        gru_out, _ = self.gru(x)    # (Batch, Seq, 64)
         
-        # GRU Layers
-        out, _ = self.gru1(out)
-        out, _ = self.gru2(out) # Shape: [batch, seq, hidden]
+        # Pooling (Take last time step)
+        lstm_feat = lstm_out[:, -1, :]
+        gru_feat = gru_out[:, -1, :]
         
-        # Take the output of the last time step
-        out = out[:, -1, :]
+        # Fusion
+        combined = torch.cat((lstm_feat, gru_feat), dim=1) # (Batch, 128)
         
         # Classification
-        out = self.fc(out)
-        return self.softmax(out)
-
-# 2. Data Loading & Preprocessing
-def load_and_preprocess():
-    print(f"Loading WESAD data from {WESAD_PATH}...")
-    # For demo robustness, we generate synthetic sequences if file missing or for consistency
-    # Real implementation would load pickle and window it.
-    
-    # Simulating WESAD-like Data:
-    # 4 Features: HR, HRV, SpO2, Motion
-    # Sequence Length: 60
-    
-    print("Generating Synthetic WESAD Sequences (Hybrid Model Input)...")
-    rng = np.random.RandomState(42)
-    
-    X_data = []
-    y_data = []
-    
-    # Generate 1000 sequences
-    for _ in range(1000):
-        label = 0 if rng.rand() > 0.5 else 1 # 0=Normal, 1=Anomaly
+        x = self.fc1(combined)
+        x = self.relu(x)
+        x = self.dropout(x)
         
-        seq = []
-        for _ in range(SEQUENCE_LENGTH):
-            if label == 0: # Normal
-                hr = rng.normal(70, 5)
-                hrv = rng.normal(50, 10)
-                spo2 = rng.normal(98, 1)
-                motion = rng.normal(0, 0.1)
-            else: # Anomaly
-                hr = rng.normal(110, 15)
-                hrv = rng.normal(20, 5)
-                spo2 = rng.normal(95, 2)
-                motion = rng.normal(0, 0.5)
-            
-            seq.append([hr, hrv, spo2, motion])
+        x = self.fc2(x)
+        x = self.relu(x)
+        x = self.dropout(x)
         
-        X_data.append(seq)
-        y_data.append(label)
-            
-    X = np.array(X_data, dtype=np.float32) # Shape: [1000, 60, 4]
-    y = np.array(y_data, dtype=np.int64)
-    
-    return X, y
+        out = self.fc3(x) # Logits
+        return out
 
-# 3. Training Loop
-def train_model():
-    X, y = load_and_preprocess()
-    
-    # Split
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    # Convert to Tensors
-    train_data = TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train))
-    test_data = TensorDataset(torch.from_numpy(X_test), torch.from_numpy(y_test))
-    
-    train_loader = DataLoader(train_data, shuffle=True, batch_size=BATCH_SIZE)
-    test_loader = DataLoader(test_data, batch_size=BATCH_SIZE)
-    
-    # Initialize Model
-    model = HybridLSTM_GRU()
-    criterion = nn.NLLLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    
-    print("Starting Training (Hybrid LSTM-GRU)...")
-    
-    for epoch in range(EPOCHS):
-        model.train()
-        total_loss = 0
-        for inputs, labels in train_loader:
-            optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item()
-            
-        print(f"Epoch {epoch+1}/{EPOCHS}, Loss: {total_loss/len(train_loader):.4f}")
+model = HybridModel()
+optimizer = optim.Adam(model.parameters(), lr=0.001) 
 
-    # Evaluation
-    print("Evaluating...")
+# ROBUST TRAINING: Weighted Loss + Scheduler
+criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight) 
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=3)
+
+# --- 3. Training Loop ---
+best_val_loss = float('inf')
+patience_counter = 0
+train_history = []
+val_history = []
+
+print(f"Starting Training (Max Epochs: {EPOCHS})...")
+
+for epoch in range(EPOCHS):
+    model.train()
+    running_loss = 0.0
+    
+    for inputs, labels in train_loader:
+        optimizer.zero_grad()
+        outputs = model(inputs).squeeze()
+        loss = criterion(outputs, labels)
+        loss.backward()
+        
+        # Gradient Clipping
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
+        running_loss += loss.item()
+    
+    avg_train = running_loss / len(train_loader)
+    train_history.append(avg_train)
+
+    # Validation Step
     model.eval()
-    all_preds = []
-    all_labels = []
-    
+    val_loss = 0.0
     with torch.no_grad():
         for inputs, labels in test_loader:
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
-            all_preds.extend(preds.numpy())
-            all_labels.extend(labels.numpy())
-            
-    print(classification_report(all_labels, all_preds, target_names=['Normal', 'Anomaly']))
+            outputs = model(inputs).squeeze()
+            loss = criterion(outputs, labels)
+            val_loss += loss.item()
     
-    # Confusion Matrix
-    cm = confusion_matrix(all_labels, all_preds)
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Normal', 'Anomaly'], yticklabels=['Normal', 'Anomaly'])
-    plt.title('Confusion Matrix: Hybrid LSTM-GRU')
-    plt.savefig(OUTPUT_CM)
-    print(f"Confusion Matrix saved to {OUTPUT_CM}")
+    avg_val = val_loss / len(test_loader)
+    val_history.append(avg_val)
+    
+    # Scheduler Step
+    scheduler.step(avg_val)
 
-    # Export to ONNX
-    print("Exporting to ONNX...")
-    dummy_input = torch.randn(1, SEQUENCE_LENGTH, 4)
-    torch.onnx.export(model, dummy_input, OUTPUT_ONNX, 
-                      input_names=['input'], output_names=['output'],
-                      dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}},
-                      opset_version=12)
-    print(f"Model exported to {OUTPUT_ONNX}")
+    print(f"Epoch {epoch+1:02d} | Train Loss: {avg_train:.4f} | Val Loss: {avg_val:.4f}")
 
-if __name__ == "__main__":
-    train_model()
+    # Early Stopping Logic
+    if avg_val < best_val_loss:
+        best_val_loss = avg_val
+        patience_counter = 0
+        best_model_state = model.state_dict()
+    else:
+        patience_counter += 1
+        if patience_counter >= PATIENCE:
+            print(f"\n⛔ Early stopping triggered at Epoch {epoch+1}!")
+            break
+
+print("Restoring best model weights...")
+model.load_state_dict(best_model_state)
+
+# --- 4. Evaluation ---
+print("\n--- Detailed Classification Report ---")
+model.eval()
+y_true, y_pred, y_prob = [], [], []
+with torch.no_grad():
+    for inputs, labels in test_loader:
+        outputs = model(inputs).squeeze()
+        probs = torch.sigmoid(outputs)
+        y_prob.extend(probs.numpy())
+        y_pred.extend((probs > 0.5).float().numpy())
+        y_true.extend(labels.numpy())
+
+print(classification_report(y_true, y_pred, target_names=['Baseline', 'Stress']))
+
+# --- 5. Export to ONNX ---
+os.makedirs(os.path.dirname(MODEL_EXPORT_PATH), exist_ok=True)
+
+class ExportModel(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, x):
+        return self.sigmoid(self.model(x))
+
+export_model = ExportModel(model)
+export_model.eval()
+
+dummy_input = torch.randn(1, SEQUENCE_LENGTH, INPUT_DIM)
+torch.onnx.export(export_model, dummy_input, MODEL_EXPORT_PATH, 
+                  input_names=['input'], output_names=['output'],
+                  dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}})
+
+print(f"✅ Model saved to: {MODEL_EXPORT_PATH}")

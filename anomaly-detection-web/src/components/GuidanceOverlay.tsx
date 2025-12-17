@@ -167,6 +167,31 @@ export function GuidanceOverlay({ latestData, anomalyScore = 0, zScore = 0 }: Gu
                                 <Phone size={18} />
                                 Call someone you trust
                             </button>
+
+                            {/* Flagship: Feedback Loop */}
+                            <div className="pt-2 border-t border-white/5">
+                                <p className="text-[10px] text-secondary text-center mb-2">Was this alert helpful?</p>
+                                <div className="flex gap-2">
+                                    <button
+                                        className="flex-1 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-500 text-xs font-medium rounded-lg transition-colors"
+                                        onClick={() => {
+                                            alert("Feedback recorded: Helpful. The model will learn from this.");
+                                            setIsDismissed(true);
+                                        }}
+                                    >
+                                        Yes, accurate
+                                    </button>
+                                    <button
+                                        className="flex-1 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-xs font-medium rounded-lg transition-colors"
+                                        onClick={() => {
+                                            alert("Feedback recorded: False Alarm. We'll adjust sensitivity.");
+                                            setIsDismissed(true);
+                                        }}
+                                    >
+                                        No, false alarm
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -213,7 +238,7 @@ export function GuidanceOverlay({ latestData, anomalyScore = 0, zScore = 0 }: Gu
                         </div>
                     </div>
                 )}
-            </div>
+            </div >
         </>
     );
 }

@@ -1,6 +1,8 @@
-import { User, Bell, Activity, Shield, LogOut, ChevronRight, Share2 } from 'lucide-react';
+import { User, Bell, Activity, Shield, LogOut, ChevronRight, Share2, Watch } from 'lucide-react';
 import { Toggle } from '../components/Toggle';
 import { useUser } from '../contexts/UserContext';
+import { dataGenerator } from '../simulation/DataGenerator';
+import { useState } from 'react';
 
 export function Settings() {
     const { user, updateUser } = useUser();
@@ -13,6 +15,13 @@ export function Settings() {
     const thresholds = user.settings?.thresholds || {
         maxHeartRate: 120,
         stressAlert: 70
+    };
+
+    const [isWatchConnected, setWatchConnected] = useState(dataGenerator.mode === 'EXTERNAL_DEVICE');
+
+    const toggleWatchConnection = (enabled: boolean) => {
+        setWatchConnected(enabled);
+        dataGenerator.setMode(enabled ? 'EXTERNAL_DEVICE' : 'NORMAL');
     };
 
     const updateNotifications = (key: keyof typeof notifications, value: boolean) => {
@@ -131,6 +140,23 @@ export function Settings() {
                         </div>
                     </div>
 
+                    {/* Device Connection */}
+                    <div className="card-base p-6 bg-surface md:col-span-2">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="size-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                                <Watch size={20} />
+                            </div>
+                            <h3 className="font-bold text-primary text-lg">Device Connection</h3>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="font-medium text-primary">Samsung Watch Integration</div>
+                                <div className="text-xs text-secondary mt-0.5">Stream real-time data from local bridge</div>
+                            </div>
+                            <Toggle checked={isWatchConnected} onChange={toggleWatchConnection} />
+                        </div>
+                    </div>
+
                     {/* Notifications */}
                     <div className="card-base p-6 bg-surface">
                         <div className="flex items-center gap-3 mb-6">
@@ -164,13 +190,59 @@ export function Settings() {
                         </div>
                     </div>
 
+                    {/* Personalization (Flagship Phase 2) */}
+                    <div className="card-base p-6 bg-surface">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="size-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
+                                <Activity size={20} />
+                            </div>
+                            <h3 className="font-bold text-primary text-lg">Health Model</h3>
+                        </div>
+                        <div className="space-y-5">
+                            {/* Resting HR Input */}
+                            <div>
+                                <label className="text-sm font-medium text-secondary mb-2 block">Resting Heart Rate (BPM)</label>
+                                <div className="flex items-center gap-4">
+                                    <input
+                                        type="number"
+                                        className="bg-background border border-white/5 rounded-xl px-4 py-2 text-primary w-24 focus:outline-none focus:border-accent"
+                                        placeholder="60"
+                                        defaultValue={60}
+                                    />
+                                    <span className="text-xs text-secondary">Used as baseline for anomaly detection.</span>
+                                </div>
+                            </div>
+
+                            {/* Risk Sensitivity Slider */}
+                            <div>
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="text-sm font-medium text-secondary">Risk Sensitivity</label>
+                                    <span className="text-sm font-bold text-accent">Medium</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="3"
+                                    step="1"
+                                    defaultValue="2"
+                                    className="w-full accent-accent h-2 bg-background rounded-lg appearance-none cursor-pointer"
+                                />
+                                <div className="flex justify-between text-[10px] text-secondary mt-1 uppercase font-bold tracking-wider">
+                                    <span>Low</span>
+                                    <span>Medium</span>
+                                    <span>High</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Thresholds */}
                     <div className="card-base p-6 bg-surface">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="size-10 rounded-xl bg-danger/10 text-danger flex items-center justify-center">
                                 <Shield size={20} />
                             </div>
-                            <h3 className="font-bold text-primary text-lg">Thresholds</h3>
+                            <h3 className="font-bold text-primary text-lg">Safety Thresholds</h3>
                         </div>
                         <div className="space-y-5">
                             <div>
@@ -204,6 +276,34 @@ export function Settings() {
                         </div>
                     </div>
 
+                    {/* Privacy Zone (Flagship Phase 2) */}
+                    <div className="card-base p-6 bg-surface md:col-span-2 border border-danger/20">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="size-10 rounded-xl bg-danger/10 text-danger flex items-center justify-center">
+                                <Shield size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-primary text-lg">Privacy & Data</h3>
+                                <p className="text-xs text-secondary">Manage your local data storage.</p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                            <p className="text-sm text-secondary max-w-md">
+                                All health data is currently stored locally on this device. Deleting it is permanent and cannot be undone.
+                            </p>
+                            <button
+                                className="px-4 py-2 bg-danger/10 hover:bg-danger text-danger hover:text-white border border-danger/20 rounded-xl font-medium transition-all text-sm whitespace-nowrap"
+                                onClick={() => {
+                                    if (confirm("Are you sure? This will wipe all history.")) {
+                                        alert("Data cleared.");
+                                    }
+                                }}
+                            >
+                                Delete My Data
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Health Goals */}
                     <div className="card-base p-6 bg-surface md:col-span-2">
                         <div className="flex items-center gap-3 mb-6">
@@ -231,6 +331,6 @@ export function Settings() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
