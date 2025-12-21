@@ -26,8 +26,8 @@ export default {
                 accent: '#00C7BE',
                 accentDark: '#00A89C',
                 accentLight: '#00E5D9',
-                success: '#30D158',
-                successDark: '#28B04A',
+                success: '#00C7BE', // Teal (Accessible)
+                successDark: '#00A89C',
                 warning: '#FFD60A',
                 warningDark: '#F5C000',
                 danger: '#FF453A',

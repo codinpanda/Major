@@ -6,7 +6,7 @@ export interface GuidanceAction {
     id: string;
     title: string;
     description: string;
-    type: 'breathing' | 'advice' | 'emergency';
+    type: 'breathing' | 'advice' | 'emergency' | 'hydration';
     durationSeconds?: number;
 }
 
@@ -76,10 +76,31 @@ class GuidanceEngine {
             }
         }
 
+        // Hydration Check (Every 15 minutes)
+        const HYDRATION_INTERVAL = 15 * 60 * 1000;
+        if (Date.now() - this.lastDrinkTime > HYDRATION_INTERVAL) {
+            return {
+                status: 'WARNING',
+                message: 'Hydration Reminder',
+                recommendedAction: {
+                    id: 'drink_water',
+                    title: 'Time to Hydrate',
+                    description: 'You haven\'t logged water recently. Staying hydrated reduces stress.',
+                    type: 'hydration'
+                }
+            };
+        }
+
         return {
             status: 'NORMAL',
             message: 'Vitals Stable'
         };
+    }
+
+    private lastDrinkTime = Date.now();
+
+    logDrink() {
+        this.lastDrinkTime = Date.now();
     }
 }
 

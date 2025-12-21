@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { AlertTriangle, Phone, X, Wind } from 'lucide-react';
+import { AlertTriangle, Phone, X, Wind, Droplet } from 'lucide-react';
 import type { HealthDataPacket } from '../simulation/DataGenerator';
+import { guidanceEngine } from '../engine/GuidanceEngine';
 
 interface GuidanceOverlayProps {
     latestData: HealthDataPacket | null;
@@ -11,6 +12,7 @@ interface GuidanceOverlayProps {
 export function GuidanceOverlay({ latestData, anomalyScore = 0, zScore = 0 }: GuidanceOverlayProps) {
     const [activeAlert, setActiveAlert] = useState<'PANIC' | 'HIGH_HR' | 'ML_ANOMALY' | null>(null);
     const [showBreathing, setShowBreathing] = useState(false);
+    const [hydrationAlert, setHydrationAlert] = useState(false); // New State
     const [isDismissed, setIsDismissed] = useState(false);
 
     // Audio Context Ref to prevent max-context limit errors
@@ -77,31 +79,34 @@ export function GuidanceOverlay({ latestData, anomalyScore = 0, zScore = 0 }: Gu
             newAlert = 'HIGH_HR';
         }
 
-        // Logic: 
-        // 1. If alert changes type (e.g. HIGH_HR -> PANIC), un-dismiss and play sound.
-        // 2. If alert clears (null), un-dismiss so next one shows.
-        // 3. If alert stays same, respect existing dismissed state.
-
         if (newAlert !== activeAlert) {
             if (newAlert) {
-                // New or escalated alert
                 setIsDismissed(false);
                 playAlertSound();
             } else {
-                // Alert cleared
                 setIsDismissed(false);
             }
             setActiveAlert(newAlert);
         }
-    }, [latestData, anomalyScore, activeAlert, playAlertSound]);
+
+        // Check Hydration from Engine
+        const guidance = guidanceEngine.analyze(latestData);
+        if (guidance.recommendedAction?.type === 'hydration') {
+            setHydrationAlert(true);
+        } else {
+            setHydrationAlert(false);
+        }
+
+    }, [latestData, anomalyScore, activeAlert, playAlertSound, zScore]);
 
     // Render Logic:
     // - Show Breathing Modal if active (top priority)
     // - Show Alert Card if active AND not dismissed AND not breathing
+    // - Show Hydration Toast if active (lower priority, non-blocking)
 
     const shouldShowAlert = activeAlert && !isDismissed && !showBreathing;
 
-    if (!shouldShowAlert && !showBreathing) return null;
+    if (!shouldShowAlert && !showBreathing && !hydrationAlert) return null;
 
     return (
         <>
@@ -117,6 +122,31 @@ export function GuidanceOverlay({ latestData, anomalyScore = 0, zScore = 0 }: Gu
                 ? "inset-x-0 bottom-0 p-4 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:bg-black/40 sm:backdrop-blur-sm" // Mobile: Bottom, Desktop: Center Modal
                 : "bottom-0 right-0 p-4 sm:bottom-6 sm:right-6 sm:w-full sm:max-w-sm" // Toast style for less critical
                 }`}>
+
+                {/* Hydration Alert (Blue Toast) */}
+                {hydrationAlert && !shouldShowAlert && !showBreathing && (
+                    <div className="bg-surface border border-blue-500/50 shadow-2xl shadow-blue-500/20 w-full rounded-2xl overflow-hidden relative animate-in slide-in-from-right fade-in duration-300">
+                        <div className="bg-blue-500/10 p-4 border-b border-blue-500/20 flex items-start gap-3">
+                            <Droplet className="text-blue-400 shrink-0" size={24} />
+                            <div>
+                                <h3 className="text-blue-400 font-bold text-lg leading-tight">Hydration Reminder</h3>
+                                <p className="text-secondary text-sm mt-1">Drink water to maintain focus and reduce stress.</p>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-surface">
+                            <button
+                                onClick={() => {
+                                    guidanceEngine.logDrink();
+                                    setHydrationAlert(false);
+                                }}
+                                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded-xl font-bold transition-colors shadow-lg shadow-blue-500/20"
+                            >
+                                <Droplet size={18} />
+                                Log Drink
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Critical Alert Card */}
                 {shouldShowAlert && (

@@ -1,11 +1,11 @@
 import * as ort from 'onnxruntime-web';
 import type { HealthDataPacket } from '../simulation/DataGenerator';
+import { SignalProcessor } from './SignalProcessor';
 
 export class InferenceEngine {
     private session: ort.InferenceSession | null = null;
     private isLoading = true;
-    private sequenceLength = 60; // Model expects 60 time steps
-    private inputDim = 2; // ECG, EDA
+    private signalProcessor = new SignalProcessor();
 
     constructor() {
         this.init();
@@ -13,6 +13,9 @@ export class InferenceEngine {
 
     async init() {
         try {
+            // Configure WASM paths to look at root (public folder)
+            ort.env.wasm.wasmPaths = '/';
+
             // Load the ONNX model from the public directory
             this.session = await ort.InferenceSession.create('./model/hybrid_model.onnx', {
                 executionProviders: ['wasm'],
@@ -25,51 +28,47 @@ export class InferenceEngine {
     }
 
     public getStatus() {
+        // approximate progress based on 3500 samples needed
+        // We can't access buffer length directly easily without exposing it, 
+        // but 'isReady' tells us if we are there.
+        // For UI feedback, we'll assume "Collecting..." until ready.
         return {
-            isCalibrating: this.isLoading,
-            samplesCollected: 0,
-            samplesNeeded: 0
+            isCalibrating: this.isLoading || !this.signalProcessor.isReady(),
+            samplesCollected: this.signalProcessor.isReady() ? 3500 : 0, // Simplified
+            samplesNeeded: 3500
         };
     }
 
     async predict(packet: HealthDataPacket): Promise<{ probability: number; zScore: number; isAnomaly: boolean }> {
-        if (this.isLoading || !this.session || !packet.rawECG || !packet.rawEDA) {
+        if (this.isLoading || !this.session) {
             return { probability: 0, zScore: 0, isAnomaly: false };
         }
 
-        // Ensure we have enough data
-        if (packet.rawECG.length < this.sequenceLength) {
-            console.warn(`Not enough data for inference. Need ${this.sequenceLength}, got ${packet.rawECG.length}`);
+        // 1. Feed Data
+        this.signalProcessor.push(packet);
+
+        // 2. Check Readiness
+        if (!this.signalProcessor.isReady()) {
+            // Buffer filling...
             return { probability: 0, zScore: 0, isAnomaly: false };
         }
 
         try {
-            // Prepare Input Tensor [1, 60, 2]
-            // Model expects input shape: (batch_size, seq_len, input_size) -> (1, 60, 2)
-            // Flattened array should be: [ecg_t0, eda_t0, ecg_t1, eda_t1, ..., ecg_t59, eda_t59]
+            // 3. Get Features [1, 19, 28] flattened
+            const features = this.signalProcessor.getSequence();
 
-            const inputData = new Float32Array(this.sequenceLength * this.inputDim);
+            // 4. Create Tensor
+            // Shape: (Batch=1, Seq=19, Feat=28)
+            const tensor = new ort.Tensor('float32', features, [1, 19, 28]);
 
-            for (let i = 0; i < this.sequenceLength; i++) {
-                // Use the last 60 points if we have more, or match exactly
-                const idx = packet.rawECG.length - this.sequenceLength + i;
-                inputData[i * 2] = packet.rawECG[idx];     // Feature 0: ECG
-                inputData[i * 2 + 1] = packet.rawEDA[idx]; // Feature 1: EDA
-            }
-
-            const tensor = new ort.Tensor('float32', inputData, [1, this.sequenceLength, this.inputDim]);
-
-            // Run Inference
-            // Input name MUST match the export. Usually 'input' or 'input.1' from PyTorch export.
-            // We can inspect session.inputNames to be sure, but standard PyTorch export usually uses 'input'.
+            // 5. Run Inference
             const feeds: Record<string, ort.Tensor> = {};
             const inputName = this.session.inputNames[0];
             feeds[inputName] = tensor;
 
             const results = await this.session.run(feeds);
 
-            // Output handling
-            // Model returns probability (from Sigmoid in ExportModel wrapper)
+            // 6. Output
             const outputName = this.session.outputNames[0];
             const outputTensor = results[outputName];
             const probability = outputTensor.data[0] as number;
@@ -77,8 +76,7 @@ export class InferenceEngine {
             // Thresholding
             const isAnomaly = probability > 0.5;
 
-            // Simple Z-score approximation for UI (prob 0.5 -> 0 sigma, 0.99 -> 3 sigma)
-            // This is just for visualization consistency until we have a real statistical baseline
+            // Z-score approximation 
             const zScore = (probability - 0.5) * 6;
 
             return {
