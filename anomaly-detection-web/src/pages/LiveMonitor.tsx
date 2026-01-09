@@ -146,7 +146,7 @@ export function LiveMonitor() {
                     value={latest?.heartRate?.toFixed(0) ?? '--'}
                     unit="BPM"
                     icon={Heart}
-                    status={latest?.heartRate && latest.heartRate > 100 ? "critical" : "normal"}
+                    status={latest?.heartRate && (latest.heartRate > 120 || latest.heartRate < 45) ? "critical" : "normal"}
                 />
                 <VitalsCard
                     title="Heart Rate Variability"
